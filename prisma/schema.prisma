@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// ------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------
+
+enum ProfileRelationshipType {
+  PARENT
+  LEGAL_GUARDIAN
+  CAREGIVER
+  FAMILY_MEMBER
+  OTHER
+
+  @@map("profile_relationship_type")
+}
+
+enum TriageSessionStatus {
+  ACTIVE
+  COMPLETED
+  ESCALATED_TO_DOCTOR
+
+  @@map("triage_session_status")
+}
+
+enum ChatMessageSender {
+  PROFILE
+  AI
+
+  @@map("chat_message_sender")
+}
+
+enum MedicalEventSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@map("medical_event_severity")
+}
+
+enum MedicalEventSource {
+  PROFILE
+  DOCTOR
+  AI_TRIAGE
+
+  @@map("medical_event_source")
+}
+
+enum ConsultationStatus {
+  REQUESTED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+
+  @@map("consultation_status")
+}
+
+enum Currency {
+  RON
+
+  @@map("currency")
+}
+
+// ------------------------------------------------------
+// MODELS MVP
+// ------------------------------------------------------
+
+model ProfileSpace {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  profiles PatientProfile[]
+
+  @@map("profile_spaces")
+}
+
+model PatientProfile {
+  id                String   @id @default(uuid()) @db.Uuid
+  profileSpaceId    String   @map("profile_space_id") @db.Uuid
+  firstName         String   @map("first_name") @db.VarChar(50)
+  lastName          String   @map("last_name") @db.VarChar(100)
+  dateOfBirth       DateTime @map("date_of_birth") @db.Date
+  allergies         String?  @db.Text
+  chronicConditions String?  @map("chronic_conditions") @db.Text
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  profileSpace ProfileSpace @relation(fields: [profileSpaceId], references: [id], onDelete: Cascade)
+
+  relationshipsAsManager ProfileRelationship[]  @relation("RelationshipManager")
+  relationshipsAsPatient ProfileRelationship[]  @relation("RelationshipPatient")
+  triageSessions         TriageSession[]        @relation("TriagePatient")
+  startedTriageSessions  TriageSession[]        @relation("TriageStartedBy")
+  messages               TriageMessage[]        @relation("MessageSenderProfile")
+  timelineEvents         MedicalTimelineEvent[] @relation("TimelinePatient")
+  recordedTimelineEvents MedicalTimelineEvent[] @relation("TimelineRecordedBy")
+  requestedConsultations Consultation[]         @relation("ConsultationPatient")
+  madeConsultations      Consultation[]         @relation("ConsultationRequestedBy")
+
+  @@index([profileSpaceId, lastName, firstName])
+  @@index([dateOfBirth])
+  @@map("patient_profiles")
+}
+
+model ProfileRelationship {
+  id               String                  @id @default(uuid()) @db.Uuid
+  managerProfileId String                  @map("manager_profile_id") @db.Uuid
+  patientProfileId String                  @map("patient_profile_id") @db.Uuid
+  type             ProfileRelationshipType
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  managerProfile PatientProfile @relation("RelationshipManager", fields: [managerProfileId], references: [id], onDelete: Cascade)
+  patientProfile PatientProfile @relation("RelationshipPatient", fields: [patientProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([managerProfileId, patientProfileId])
+  @@index([patientProfileId])
+  @@map("profile_relationships")
+}
+
+model DoctorProfile {
+  id                   String   @id @default(uuid()) @db.Uuid
+  fullName             String   @map("full_name") @db.VarChar(100)
+  licenseNumber        String?  @unique @map("license_number") @db.VarChar(50)
+  specialty            String?  @db.VarChar(100)
+  isOnline             Boolean  @default(false) @map("is_online")
+  pricePerConsultation Decimal  @map("price_per_consultation") @db.Decimal(10, 2)
+  currency             Currency @default(RON)
+  bio                  String?  @db.Text
+  isVerified           Boolean  @default(false) @map("is_verified")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  consultations         Consultation[]
+  medicalTimelineEvents MedicalTimelineEvent[]
+
+  @@index([isVerified, isOnline])
+  @@map("doctor_profiles")
+}
+
+model TriageSession {
+  id                 String              @id @default(uuid()) @db.Uuid
+  patientProfileId   String              @map("patient_profile_id") @db.Uuid
+  startedByProfileId String              @map("started_by_profile_id") @db.Uuid
+  status             TriageSessionStatus @default(ACTIVE)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  patient        PatientProfile         @relation("TriagePatient", fields: [patientProfileId], references: [id], onDelete: Restrict)
+  startedBy      PatientProfile         @relation("TriageStartedBy", fields: [startedByProfileId], references: [id], onDelete: Restrict)
+  messages       TriageMessage[]
+  timelineEvents MedicalTimelineEvent[]
+  consultations  Consultation[]
+
+  @@index([patientProfileId, createdAt])
+  @@index([startedByProfileId, createdAt])
+  @@map("triage_sessions")
+}
+
+model TriageMessage {
+  id              String            @id @default(uuid()) @db.Uuid
+  sessionId       String            @map("session_id") @db.Uuid
+  sender          ChatMessageSender
+  senderProfileId String?           @map("sender_profile_id") @db.Uuid
+  content         String            @db.Text
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  session       TriageSession   @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  senderProfile PatientProfile? @relation("MessageSenderProfile", fields: [senderProfileId], references: [id], onDelete: Restrict)
+
+  @@index([sessionId, createdAt])
+  @@map("triage_messages")
+}
+
+model MedicalTimelineEvent {
+  id                  String               @id @default(uuid()) @db.Uuid
+  patientProfileId    String               @map("patient_profile_id") @db.Uuid
+  recordedByProfileId String?              @map("recorded_by_profile_id") @db.Uuid
+  doctorProfileId     String?              @map("doctor_profile_id") @db.Uuid
+  sourceSessionId     String?              @map("source_session_id") @db.Uuid
+  source              MedicalEventSource
+  symptom             String               @db.VarChar(150)
+  severity            MedicalEventSeverity @default(MEDIUM)
+  summary             String?              @db.Text
+  recordedAt          DateTime             @default(now()) @map("recorded_at") @db.Timestamptz(6)
+
+  patient       PatientProfile  @relation("TimelinePatient", fields: [patientProfileId], references: [id], onDelete: Restrict)
+  recordedBy    PatientProfile? @relation("TimelineRecordedBy", fields: [recordedByProfileId], references: [id], onDelete: Restrict)
+  doctor        DoctorProfile?  @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
+  sourceSession TriageSession?  @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
+
+  @@index([patientProfileId, recordedAt])
+  @@index([recordedByProfileId])
+  @@map("medical_timeline_events")
+}
+
+model Consultation {
+  id                   String             @id @default(uuid()) @db.Uuid
+  patientProfileId     String             @map("patient_profile_id") @db.Uuid
+  requestedByProfileId String             @map("requested_by_profile_id") @db.Uuid
+  doctorProfileId      String?            @map("doctor_profile_id") @db.Uuid
+  triageSessionId      String?            @map("triage_session_id") @db.Uuid
+  status               ConsultationStatus @default(REQUESTED)
+  totalFee             Decimal            @map("total_fee") @db.Decimal(10, 2)
+  platformCommission   Decimal            @map("platform_commission") @db.Decimal(10, 2)
+  currency             Currency           @default(RON)
+  doctorNotes          String?            @map("doctor_notes") @db.Text // Simplu text introdus de medic la final
+  startedAt            DateTime?          @map("started_at") @db.Timestamptz(6)
+  endedAt              DateTime?          @map("ended_at") @db.Timestamptz(6)
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  patient       PatientProfile @relation("ConsultationPatient", fields: [patientProfileId], references: [id], onDelete: Restrict)
+  requestedBy   PatientProfile @relation("ConsultationRequestedBy", fields: [requestedByProfileId], references: [id], onDelete: Restrict)
+  doctor        DoctorProfile? @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
+  triageSession TriageSession? @relation(fields: [triageSessionId], references: [id], onDelete: SetNull)
+
+  @@index([patientProfileId, createdAt])
+  @@index([requestedByProfileId, createdAt])
+  @@index([doctorProfileId, createdAt])
+  @@map("consultations")
+}
