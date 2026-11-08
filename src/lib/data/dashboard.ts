@@ -80,16 +80,11 @@ export async function getPatientDashboardById(
       },
     },
     health: {
-      allergies,
-      conditions,
-      currentTreatments,
-      measurements: pickFormMeasurements(
-        profile.measurements.map((measurement) => ({
       allergies: mapProfileMedicalValues(profile.allergies),
       conditions: mapProfileMedicalValues(profile.chronicConditions),
       currentTreatments: mapProfileMedicalValues(profile.currentTreatments),
-      measurements: filterPersistentMeasurements(profile.measurements).map(
-        (measurement) => ({
+      measurements: pickFormMeasurements(
+        profile.measurements.map((measurement) => ({
           id: measurement.id,
           label: measurement.label,
           value: measurement.value,

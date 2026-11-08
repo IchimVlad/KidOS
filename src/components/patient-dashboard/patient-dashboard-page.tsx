@@ -55,13 +55,6 @@ function isUnspecified(text: string | null | undefined): boolean {
   );
 }
 
-function joinMedicalValues(items: { text: string | null }[]): string | null {
-  const values = items
-    .map((item) => item.text?.trim() ?? "")
-    .filter((text) => text.length > 0 && !isUnspecified(text));
-  return values.length > 0 ? values.join(", ") : null;
-}
-
 export function PatientDashboardPage({
   dashboard,
 }: {
@@ -819,18 +812,15 @@ function HealthSummaryContent({
 }: {
   dashboard: PatientDashboard;
 }) {
-  const allergies = splitHealthItems(dashboard.health.allergies[0]?.text);
-  const conditions = splitHealthItems(dashboard.health.conditions[0]?.text);
-  const treatments = splitHealthItems(
-    dashboard.health.currentTreatments[0]?.text,
+  const allergies = dashboard.health.allergies.flatMap((item) =>
+    splitHealthItems(item.text),
   );
-  const allergyText = joinMedicalValues(dashboard.health.allergies);
-  const conditionText = joinMedicalValues(dashboard.health.conditions);
-  const treatmentText = joinMedicalValues(
-    dashboard.health.currentTreatments,
+  const conditions = dashboard.health.conditions.flatMap((item) =>
+    splitHealthItems(item.text),
   );
-  const allergyClear = allergyText === null;
-  const conditionClear = conditionText === null;
+  const treatments = dashboard.health.currentTreatments.flatMap((item) =>
+    splitHealthItems(item.text),
+  );
 
   return (
     <div className="space-y-4">
@@ -840,24 +830,18 @@ function HealthSummaryContent({
           items={allergies}
           emptyLabel="Fără alergii cunoscute"
           tone="alert"
-          value={allergyText ?? "Fără alergii cunoscute"}
-          tone={allergyClear ? "clear" : "alert"}
         />
         <HealthFactList
           label="Afecțiuni"
           items={conditions}
           emptyLabel="Fără afecțiuni declarate"
           tone="alert"
-          value={conditionText ?? "Fără afecțiuni declarate"}
-          tone={conditionClear ? "clear" : "alert"}
         />
         <HealthFactList
           label="Tratamente"
           items={treatments}
           emptyLabel="Fără tratamente curente"
           tone="neutral"
-          value={treatmentText ?? "Fără tratamente curente"}
-          tone="clear"
         />
       </div>
 
