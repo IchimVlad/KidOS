@@ -327,24 +327,6 @@ async function seed() {
     source: "CONSULTATION",
   });
   await upsertById(prisma.measurement, {
-    id: "00000000-0000-4000-8000-000000000804",
-    patientProfileId: ANDREI_ID,
-    label: "Tensiune arterială",
-    value: "120/80",
-    unit: "mmHg",
-    recordedAt: daysAgo(60),
-    source: "DECLARED",
-  });
-  await upsertById(prisma.measurement, {
-    id: "00000000-0000-4000-8000-000000000805",
-    patientProfileId: MARIA_ID,
-    label: "Temperatură",
-    value: "36.7",
-    unit: "°C",
-    recordedAt: daysAgo(3),
-    source: "DECLARED",
-  });
-  await upsertById(prisma.measurement, {
     id: "00000000-0000-4000-8000-000000000806",
     patientProfileId: VLAD_ID,
     label: "Înălțime",
@@ -359,6 +341,15 @@ async function seed() {
     label: "Greutate",
     value: "78.5",
     unit: "kg",
+    recordedAt: daysAgo(60),
+    source: "CONSULTATION",
+  });
+  await upsertById(prisma.measurement, {
+    id: "00000000-0000-4000-8000-000000000808",
+    patientProfileId: ANDREI_ID,
+    label: "Înălțime",
+    value: "178",
+    unit: "cm",
     recordedAt: daysAgo(60),
     source: "CONSULTATION",
   });

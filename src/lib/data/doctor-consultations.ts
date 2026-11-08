@@ -17,6 +17,7 @@ import type {
   DoctorInboxTab,
   DoctorPatientContext,
 } from "@/lib/doctor/types";
+import { filterPersistentMeasurements } from "@/lib/patient-dashboard/measurements";
 import { getPrismaClient } from "@/lib/prisma";
 import type {
   ConsultationMessageSender,
@@ -349,7 +350,7 @@ export async function getDoctorPatientContext(
   const profile = await prisma.patientProfile.findUnique({
     where: { id: patientId },
     include: {
-      measurements: { orderBy: { recordedAt: "desc" }, take: 6 },
+      measurements: { orderBy: { recordedAt: "desc" }, take: 20 },
       timelineEvents: { orderBy: { recordedAt: "desc" }, take: 5 },
       prescriptions: { orderBy: { date: "desc" }, take: 5 },
       documents: { orderBy: { date: "desc" }, take: 5 },
@@ -376,13 +377,15 @@ export async function getDoctorPatientContext(
       [profile.emergencyContactName, profile.emergencyContactPhone]
         .filter(Boolean)
         .join(" · ") || null,
-    measurements: profile.measurements.map((measurement) => ({
-      id: measurement.id,
-      label: measurement.label,
-      value: measurement.value ?? "",
-      unit: measurement.unit,
-      recordedAt: toIsoDate(measurement.recordedAt),
-    })),
+    measurements: filterPersistentMeasurements(profile.measurements)
+      .slice(0, 4)
+      .map((measurement) => ({
+        id: measurement.id,
+        label: measurement.label,
+        value: measurement.value ?? "",
+        unit: measurement.unit,
+        recordedAt: toIsoDate(measurement.recordedAt),
+      })),
     events: profile.timelineEvents.map((event) => ({
       id: event.id,
       title: event.title,

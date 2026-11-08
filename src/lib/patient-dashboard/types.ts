@@ -74,6 +74,7 @@ export type PatientPerson = {
   firstName: string;
   relation: PatientRelation;
   sex: PatientSex;
+  ageYears: number;
   ageLabel: string;
   editDetails: {
     preferredName: string | null;
@@ -97,6 +98,7 @@ export type CareCoverage = {
 export type ActiveConsultation = {
   id: string;
   title: string;
+  status: "pending" | "in_progress" | "closed";
   statusLabel: string;
 };
 

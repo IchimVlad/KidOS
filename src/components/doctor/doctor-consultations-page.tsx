@@ -20,10 +20,10 @@ import {
 } from "@/lib/consultations/format";
 import type { ChatMessage } from "@/lib/consultations/types";
 import {
-  DOCTOR_TAB_LABEL,
+  DOCTOR_CHAT_TAB_LABEL,
   doctorStatusLabel,
+  type DoctorChatTab,
   type DoctorConsultation,
-  type DoctorInboxTab,
   type DoctorPatientContext,
   type DoctorSummary,
 } from "@/lib/doctor/types";
@@ -31,16 +31,14 @@ import { cn } from "@/lib/utils";
 
 export function DoctorConsultationsPage({
   doctor,
-  initialRequested,
   initialActive,
   initialClosed,
-  initialTab = "requested",
+  initialTab = "active",
 }: {
   doctor: DoctorSummary;
-  initialRequested: DoctorConsultation[];
   initialActive: DoctorConsultation[];
   initialClosed: DoctorConsultation[];
-  initialTab?: DoctorInboxTab;
+  initialTab?: DoctorChatTab;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,12 +46,10 @@ export function DoctorConsultationsPage({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const notesTimerRef = useRef<number | null>(null);
 
-  const [tab, setTab] = useState<DoctorInboxTab>(initialTab);
-  const [requested, setRequested] = useState(initialRequested);
+  const [tab, setTab] = useState<DoctorChatTab>(initialTab);
   const [active, setActive] = useState(initialActive);
   const [closed, setClosed] = useState(initialClosed);
   const [baseline, setBaseline] = useState({
-    requested: initialRequested,
     active: initialActive,
     closed: initialClosed,
   });
@@ -69,33 +65,27 @@ export function DoctorConsultationsPage({
   const [contextLoading, setContextLoading] = useState(false);
 
   if (
-    initialRequested !== baseline.requested ||
     initialActive !== baseline.active ||
     initialClosed !== baseline.closed
   ) {
     setBaseline({
-      requested: initialRequested,
       active: initialActive,
       closed: initialClosed,
     });
-    setRequested(initialRequested);
     setActive(initialActive);
     setClosed(initialClosed);
   }
 
   const inbox = useMemo(() => {
-    if (tab === "requested") {
-      return requested;
-    }
     if (tab === "active") {
       return active;
     }
     return closed;
-  }, [tab, requested, active, closed]);
+  }, [tab, active, closed]);
 
   const allConsultations = useMemo(
-    () => [...requested, ...active, ...closed],
-    [requested, active, closed],
+    () => [...active, ...closed],
+    [active, closed],
   );
 
   const chatFromUrl = searchParams.get("chat");
@@ -169,24 +159,18 @@ export function DoctorConsultationsPage({
   }, [activeConsultation?.patientId, activeConsultation?.id, doctor.id]);
 
   function replaceConsultation(next: DoctorConsultation) {
-    setRequested((current) =>
-      current.filter((item) => item.id !== next.id),
-    );
     setActive((current) => current.filter((item) => item.id !== next.id));
     setClosed((current) => current.filter((item) => item.id !== next.id));
 
-    if (next.status === "pending") {
-      setRequested((current) => [next, ...current]);
-      setTab("requested");
-      return;
-    }
     if (next.status === "in_progress") {
       setActive((current) => [next, ...current]);
       setTab("active");
       return;
     }
-    setClosed((current) => [next, ...current]);
-    setTab("closed");
+    if (next.status === "closed") {
+      setClosed((current) => [next, ...current]);
+      setTab("closed");
+    }
   }
 
   function patchConsultation(
@@ -197,7 +181,6 @@ export function DoctorConsultationsPage({
       current.map((item) =>
         item.id === consultationId ? { ...item, ...patch } : item,
       );
-    setRequested(updater);
     setActive(updater);
     setClosed(updater);
   }
@@ -209,7 +192,7 @@ export function DoctorConsultationsPage({
     setMobileShowChat(true);
   }
 
-  function selectTab(next: DoctorInboxTab) {
+  function selectTab(next: DoctorChatTab) {
     setTab(next);
     const chat = searchParams.get("chat");
     const query = new URLSearchParams();
@@ -218,30 +201,6 @@ export function DoctorConsultationsPage({
       query.set("chat", chat);
     }
     router.replace(`/medic/consultatii?${query.toString()}`);
-  }
-
-  async function handleAccept() {
-    if (activeConsultation == null || busy) {
-      return;
-    }
-    setBusy(true);
-    try {
-      const response = await fetch(
-        `/api/medic/${doctor.id}/consultations/${activeConsultation.id}/accept`,
-        { method: "POST" },
-      );
-      if (!response.ok) {
-        return;
-      }
-      const payload = (await response.json()) as {
-        consultation: DoctorConsultation;
-      };
-      replaceConsultation(payload.consultation);
-      openConsultation(payload.consultation.id);
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function handleComplete() {
@@ -355,8 +314,7 @@ export function DoctorConsultationsPage({
   const panelMotion =
     "transition-transform duration-300 ease-out motion-reduce:transition-none";
 
-  const tabCounts: Record<DoctorInboxTab, number> = {
-    requested: requested.length,
+  const tabCounts: Record<DoctorChatTab, number> = {
     active: active.length,
     closed: closed.length,
   };
@@ -402,7 +360,7 @@ export function DoctorConsultationsPage({
           </div>
 
           <div className="flex shrink-0 gap-1 border-b border-border/40 px-2 py-2">
-            {(Object.keys(DOCTOR_TAB_LABEL) as DoctorInboxTab[]).map(
+            {(Object.keys(DOCTOR_CHAT_TAB_LABEL) as DoctorChatTab[]).map(
               (item) => (
                 <button
                   key={item}
@@ -415,7 +373,7 @@ export function DoctorConsultationsPage({
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  {DOCTOR_TAB_LABEL[item]}
+                  {DOCTOR_CHAT_TAB_LABEL[item]}
                   <span className="tabular-nums opacity-80">
                     {tabCounts[item]}
                   </span>
@@ -426,11 +384,23 @@ export function DoctorConsultationsPage({
 
           <ul
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]"
-            aria-label="Lista consultațiilor"
+            aria-label="Lista consultațiilor acceptate"
           >
             {inbox.length === 0 ? (
-              <li className="px-4 py-8 text-sm text-muted-foreground">
-                Nicio consultație în acest tab.
+              <li className="space-y-3 px-4 py-8 text-sm text-muted-foreground">
+                <p>
+                  {tab === "active"
+                    ? "Nicio consultație acceptată în curs."
+                    : "Nicio consultație închisă."}
+                </p>
+                {tab === "active" ? (
+                  <Link
+                    href="/medic#solicitari"
+                    className="inline-flex min-h-11 items-center justify-center rounded-chat-cta border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Vezi solicitările noi
+                  </Link>
+                ) : null}
               </li>
             ) : (
               inbox.map((consultation) => (
@@ -444,11 +414,9 @@ export function DoctorConsultationsPage({
                   <span
                     className={cn(
                       "w-1 shrink-0 self-stretch rounded-r-full",
-                      consultation.status === "pending"
-                        ? "bg-status-wait"
-                        : consultation.status === "in_progress"
-                          ? "bg-status-live"
-                          : "bg-status-done",
+                      consultation.status === "in_progress"
+                        ? "bg-status-live"
+                        : "bg-status-done",
                     )}
                     aria-hidden="true"
                   />
@@ -535,11 +503,9 @@ export function DoctorConsultationsPage({
                       <span
                         className={cn(
                           "mt-0.5 inline-flex max-w-full items-center gap-1.5 truncate rounded-chat-cta border px-2 py-0.5 text-[11px] font-medium",
-                          activeConsultation.status === "pending"
-                            ? "border-status-wait/30 bg-status-wait-soft text-status-wait-foreground"
-                            : activeConsultation.status === "in_progress"
-                              ? "border-status-live/30 bg-status-live-soft text-status-live-foreground"
-                              : "border-status-done/30 bg-status-done-soft text-status-done-foreground",
+                          activeConsultation.status === "in_progress"
+                            ? "border-status-live/30 bg-status-live-soft text-status-live-foreground"
+                            : "border-status-done/30 bg-status-done-soft text-status-done-foreground",
                         )}
                       >
                         {doctorStatusLabel(activeConsultation.status)}
@@ -555,16 +521,6 @@ export function DoctorConsultationsPage({
                     >
                       Context
                     </button>
-                    {activeConsultation.status === "pending" ? (
-                      <button
-                        type="button"
-                        onClick={() => void handleAccept()}
-                        disabled={busy}
-                        className="inline-flex min-h-11 touch-manipulation items-center justify-center rounded-chat-cta bg-bubble-out px-3 text-sm font-medium text-bubble-out-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
-                      >
-                        Preia
-                      </button>
-                    ) : null}
                     {activeConsultation.status === "in_progress" ? (
                       <button
                         type="button"
@@ -585,7 +541,7 @@ export function DoctorConsultationsPage({
                         Niciun mesaj încă
                       </p>
                       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                        Preia consultația și răspunde părinților aici.
+                        Răspunde părinților aici.
                       </p>
                     </div>
                   ) : (
@@ -646,13 +602,20 @@ export function DoctorConsultationsPage({
             </>
           ) : (
             <div className="flex flex-1 items-center justify-center px-6 text-center">
-              <div className="max-w-sm space-y-2">
+              <div className="max-w-sm space-y-3">
                 <p className="text-lg font-semibold tracking-tight">
                   Alege o consultație
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Selectează din inbox o consultație de preluat sau în curs.
+                  Inbox-ul arată doar consultațiile acceptate. Solicitările noi
+                  se preiau din dashboard.
                 </p>
+                <Link
+                  href="/medic#solicitari"
+                  className="inline-flex min-h-11 items-center justify-center rounded-chat-cta border border-border px-4 text-sm font-medium transition-colors hover:bg-muted"
+                >
+                  Vezi solicitările noi
+                </Link>
               </div>
             </div>
           )}

@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { DoctorConsultationsPage } from "@/components/doctor/doctor-consultations-page";
 import { listDoctorInbox } from "@/lib/data/doctor-consultations";
 import { getDefaultDoctor } from "@/lib/data/doctors";
-import { doctorInboxTabSchema } from "@/lib/doctor/types";
+import { doctorChatTabSchema } from "@/lib/doctor/types";
 
 type PageProps = {
   searchParams: Promise<{ chat?: string; tab?: string }>;
@@ -32,8 +32,12 @@ async function MedicConsultatiiContent({ searchParams }: PageProps) {
   }
 
   const params = await searchParams;
-  const tabParsed = doctorInboxTabSchema.safeParse(params.tab);
-  const initialTab = tabParsed.success ? tabParsed.data : "requested";
+  if (params.tab === "requested") {
+    redirect("/medic#solicitari");
+  }
+
+  const tabParsed = doctorChatTabSchema.safeParse(params.tab);
+  const initialTab = tabParsed.success ? tabParsed.data : "active";
 
   const [requested, active, closed] = await Promise.all([
     listDoctorInbox(doctor.id, "requested"),
@@ -41,10 +45,18 @@ async function MedicConsultatiiContent({ searchParams }: PageProps) {
     listDoctorInbox(doctor.id, "closed"),
   ]);
 
+  if (
+    params.chat &&
+    requested.some((item) => item.id === params.chat) &&
+    !active.some((item) => item.id === params.chat) &&
+    !closed.some((item) => item.id === params.chat)
+  ) {
+    redirect("/medic#solicitari");
+  }
+
   return (
     <DoctorConsultationsPage
       doctor={doctor}
-      initialRequested={requested}
       initialActive={active}
       initialClosed={closed}
       initialTab={initialTab}

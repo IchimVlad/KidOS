@@ -23,6 +23,10 @@ export const doctorInboxTabSchema = z.enum([
 
 export type DoctorInboxTab = z.infer<typeof doctorInboxTabSchema>;
 
+export const doctorChatTabSchema = z.enum(["active", "closed"]);
+
+export type DoctorChatTab = z.infer<typeof doctorChatTabSchema>;
+
 export const doctorConsultationSchema = z.object({
   id: z.string().uuid(),
   patientId: z.string().uuid(),
@@ -81,6 +85,11 @@ export type DoctorPatientContext = {
 
 export const DOCTOR_TAB_LABEL: Record<DoctorInboxTab, string> = {
   requested: "De preluat",
+  active: "În curs",
+  closed: "Închise",
+};
+
+export const DOCTOR_CHAT_TAB_LABEL: Record<DoctorChatTab, string> = {
   active: "În curs",
   closed: "Închise",
 };
