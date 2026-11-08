@@ -340,7 +340,7 @@ export function ConsultationsPage({
           showChatOnMobile ? "hidden md:block" : "block",
         )}
       >
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href={dashboardHref}
@@ -368,7 +368,7 @@ export function ConsultationsPage({
         </div>
       </header>
 
-      <div className="relative mx-auto min-h-0 w-full max-w-7xl flex-1 overflow-hidden md:flex">
+      <div className="relative min-h-0 w-full flex-1 overflow-hidden md:flex">
         <aside
           className={cn(
             "absolute inset-0 z-10 flex min-w-0 flex-col border-r border-border/70 bg-background/80 md:static md:z-auto md:w-[36%] md:bg-background/55",

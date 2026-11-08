@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ProfileAvatar } from "@/components/patient-select/avatar";
 import {
   formatChatDay,
+  formatChatShortDate,
   formatChatTime,
   previewText,
 } from "@/lib/consultations/format";
@@ -33,11 +34,13 @@ export function DoctorConsultationsPage({
   initialRequested,
   initialActive,
   initialClosed,
+  initialTab = "requested",
 }: {
   doctor: DoctorSummary;
   initialRequested: DoctorConsultation[];
   initialActive: DoctorConsultation[];
   initialClosed: DoctorConsultation[];
+  initialTab?: DoctorInboxTab;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,7 +48,7 @@ export function DoctorConsultationsPage({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const notesTimerRef = useRef<number | null>(null);
 
-  const [tab, setTab] = useState<DoctorInboxTab>("requested");
+  const [tab, setTab] = useState<DoctorInboxTab>(initialTab);
   const [requested, setRequested] = useState(initialRequested);
   const [active, setActive] = useState(initialActive);
   const [closed, setClosed] = useState(initialClosed);
@@ -201,9 +204,20 @@ export function DoctorConsultationsPage({
 
   function openConsultation(consultationId: string) {
     router.replace(
-      `/medic/${doctor.id}/consultatii?chat=${consultationId}`,
+      `/medic/consultatii?chat=${consultationId}&tab=${tab}`,
     );
     setMobileShowChat(true);
+  }
+
+  function selectTab(next: DoctorInboxTab) {
+    setTab(next);
+    const chat = searchParams.get("chat");
+    const query = new URLSearchParams();
+    query.set("tab", next);
+    if (chat) {
+      query.set("chat", chat);
+    }
+    router.replace(`/medic/consultatii?${query.toString()}`);
   }
 
   async function handleAccept() {
@@ -355,13 +369,13 @@ export function DoctorConsultationsPage({
           showChatOnMobile ? "hidden md:block" : "block",
         )}
       >
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/medic"
               className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center rounded-chat-cta px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              Medici
+              Dashboard
             </Link>
             <div className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
             <p className="truncate text-sm">
@@ -373,7 +387,7 @@ export function DoctorConsultationsPage({
         </div>
       </header>
 
-      <div className="relative mx-auto min-h-0 w-full max-w-7xl flex-1 overflow-hidden md:flex">
+      <div className="relative min-h-0 w-full flex-1 overflow-hidden md:flex">
         <aside
           className={cn(
             "absolute inset-0 z-10 flex min-w-0 flex-col border-r border-border/70 bg-background/80 md:static md:z-auto md:w-[34%] md:bg-background/55",
@@ -393,7 +407,7 @@ export function DoctorConsultationsPage({
                 <button
                   key={item}
                   type="button"
-                  onClick={() => setTab(item)}
+                  onClick={() => selectTab(item)}
                   className={cn(
                     "inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-chat-cta px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     tab === item
@@ -648,6 +662,23 @@ export function DoctorConsultationsPage({
   );
 }
 
+function isClearClinicalNote(value: string | null): boolean {
+  if (value == null || value.trim().length === 0) {
+    return true;
+  }
+  const normalized = value.toLowerCase();
+  return (
+    /\b(nu|nicio|niciun|fără|fara|necunoscut|necunoscute)\b/.test(normalized) ||
+    normalized.includes("nu sunt") ||
+    normalized.includes("nu are")
+  );
+}
+
+function formatContextDate(value: string): string {
+  const short = formatChatShortDate(value);
+  return short.length > 0 ? short : value;
+}
+
 function DoctorContextPanel({
   open,
   onClose,
@@ -665,28 +696,38 @@ function DoctorContextPanel({
   notesDisabled: boolean;
   onNotesChange: (value: string) => void;
 }) {
+  const allergiesClear = isClearClinicalNote(context?.allergies ?? null);
+  const conditionsClear = isClearClinicalNote(context?.conditions ?? null);
+
   return (
     <aside
       className={cn(
-        "shrink-0 border-border/70 bg-background/95",
+        "flex shrink-0 flex-col border-border/70 bg-background/95",
         "max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-30 max-lg:w-[min(100%,22rem)] max-lg:border-l max-lg:shadow-xl",
-        "lg:flex lg:w-[22rem] lg:flex-col lg:border-l",
+        "lg:w-[22rem] lg:border-l",
         open ? "max-lg:flex" : "max-lg:hidden",
       )}
     >
-      <div className="flex h-16 items-center justify-between border-b border-border/70 px-4">
-        <p className="text-sm font-semibold tracking-tight">Context pacient</p>
+      <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/70 px-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold tracking-tight">
+            {context
+              ? `${context.patientName} · ${context.ageLabel}`
+              : "Context pacient"}
+          </p>
+          <p className="text-[11px] text-muted-foreground">Context</p>
+        </div>
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex size-10 items-center justify-center rounded-chat-cta text-muted-foreground hover:bg-muted lg:hidden"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-chat-cta text-muted-foreground hover:bg-muted lg:hidden"
           aria-label="Închide contextul"
         >
           ×
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4">
         {loading && context == null ? (
           <p className="text-sm text-muted-foreground">Se încarcă contextul…</p>
         ) : context == null ? (
@@ -695,60 +736,82 @@ function DoctorContextPanel({
           </p>
         ) : (
           <>
-            <section className="space-y-1">
-              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                Identitate
-              </h2>
-              <p className="text-sm font-medium">
-                {context.patientName} · {context.ageLabel}
-              </p>
-              {context.allergies ? (
-                <p className="text-sm text-muted-foreground">
-                  Alergii: {context.allergies}
-                </p>
-              ) : null}
-              {context.conditions ? (
-                <p className="text-sm text-muted-foreground">
-                  Afecțiuni: {context.conditions}
-                </p>
-              ) : null}
+            <section className="space-y-2" aria-label="Siguranță clinică">
+              <SafetyRow
+                label="Alergii"
+                value={
+                  allergiesClear
+                    ? "Fără alergii cunoscute"
+                    : (context.allergies ?? "Fără alergii cunoscute")
+                }
+                tone={allergiesClear ? "clear" : "alert"}
+              />
+              <SafetyRow
+                label="Afecțiuni"
+                value={
+                  conditionsClear
+                    ? "Fără afecțiuni declarate"
+                    : (context.conditions ?? "Fără afecțiuni declarate")
+                }
+                tone={conditionsClear ? "clear" : "alert"}
+              />
             </section>
 
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                Măsurători recente
+              <h2 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                Măsurători
               </h2>
               {context.measurements.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Fără măsurători.</p>
+                <p className="text-sm text-muted-foreground">Fără măsurători</p>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="grid grid-cols-3 gap-2">
                   {context.measurements.map((measurement) => (
-                    <li key={measurement.id} className="text-sm">
-                      <span className="font-medium">{measurement.label}</span>
-                      {": "}
-                      {measurement.value}
-                      {measurement.unit ? ` ${measurement.unit}` : ""}
+                    <li
+                      key={measurement.id}
+                      className="rounded-xl border border-border/60 bg-bubble-in/60 px-2.5 py-2.5"
+                    >
+                      <p className="truncate text-[10px] font-medium text-muted-foreground">
+                        {measurement.label}
+                      </p>
+                      <p className="mt-1 truncate text-base font-semibold tracking-tight tabular-nums">
+                        {measurement.value}
+                        {measurement.unit ? (
+                          <span className="ml-0.5 text-xs font-medium text-muted-foreground">
+                            {measurement.unit}
+                          </span>
+                        ) : null}
+                      </p>
                     </li>
                   ))}
                 </ul>
               )}
             </section>
 
-            <section className="space-y-2">
-              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            <section className="space-y-2.5">
+              <h2 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 Timeline
               </h2>
               {context.events.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Fără evenimente.</p>
+                <p className="text-sm text-muted-foreground">Fără evenimente</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="relative space-y-3 before:absolute before:top-1.5 before:bottom-1.5 before:left-[3px] before:w-px before:bg-border/70">
                   {context.events.map((event) => (
-                    <li key={event.id} className="text-sm">
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {event.date}
-                        {event.summary ? ` · ${event.summary}` : ""}
+                    <li key={event.id} className="relative pl-4">
+                      <span
+                        className="absolute top-1.5 left-0 size-[7px] rounded-full border-2 border-background bg-status-live"
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm font-medium leading-snug">
+                        {event.title}
                       </p>
+                      <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+                        {formatContextDate(event.date)}
+                      </p>
+                      {event.summary ? (
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                          {event.summary}
+                        </p>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -756,18 +819,24 @@ function DoctorContextPanel({
             </section>
 
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              <h2 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 Rețete
               </h2>
               {context.prescriptions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Fără rețete.</p>
+                <p className="text-sm text-muted-foreground">Fără rețete</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-1">
                   {context.prescriptions.map((prescription) => (
-                    <li key={prescription.id} className="text-sm">
-                      <p className="font-medium">{prescription.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {prescription.date} · {prescription.doctorName}
+                    <li
+                      key={prescription.id}
+                      className="rounded-xl px-2.5 py-2 transition-colors hover:bg-muted/70"
+                    >
+                      <p className="text-sm font-medium leading-snug">
+                        {prescription.title}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {formatContextDate(prescription.date)} ·{" "}
+                        {prescription.doctorName}
                       </p>
                     </li>
                   ))}
@@ -776,20 +845,23 @@ function DoctorContextPanel({
             </section>
 
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              <h2 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 Documente
               </h2>
               {context.documents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Fără documente.</p>
+                <p className="text-sm text-muted-foreground">Fără documente</p>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="space-y-1">
                   {context.documents.map((document) => (
-                    <li key={document.id} className="text-sm">
-                      {document.title}
-                      <span className="text-muted-foreground">
-                        {" "}
-                        · {document.date}
-                      </span>
+                    <li key={document.id}>
+                      <div className="flex items-start justify-between gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-muted/70">
+                        <p className="min-w-0 text-sm font-medium leading-snug">
+                          {document.title}
+                        </p>
+                        <span className="shrink-0 pt-0.5 text-[11px] tabular-nums text-muted-foreground">
+                          {formatContextDate(document.date)}
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -797,23 +869,61 @@ function DoctorContextPanel({
             </section>
           </>
         )}
-
-        <section className="space-y-2 border-t border-border/50 pt-4">
-          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Notă internă
-          </h2>
-          <textarea
-            value={notes}
-            disabled={notesDisabled}
-            onChange={(event) => onNotesChange(event.target.value)}
-            placeholder="Vizibilă doar pentru medic…"
-            maxLength={5000}
-            rows={4}
-            className="w-full resize-none rounded-chat border border-input bg-bubble-in px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-          />
-        </section>
       </div>
+
+      <section className="shrink-0 space-y-2 border-t border-border/70 bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <h2 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Notă internă
+        </h2>
+        <textarea
+          value={notes}
+          disabled={notesDisabled}
+          onChange={(event) => onNotesChange(event.target.value)}
+          placeholder="Vizibilă doar pentru medic…"
+          maxLength={5000}
+          rows={3}
+          className="w-full resize-none rounded-chat border border-input bg-bubble-in px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        />
+      </section>
     </aside>
+  );
+}
+
+function SafetyRow({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "clear" | "alert";
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border px-3 py-2.5",
+        tone === "alert"
+          ? "border-status-wait/40 bg-status-wait-soft text-status-wait-foreground"
+          : "border-border/60 bg-bubble-in/50 text-muted-foreground",
+      )}
+    >
+      <p
+        className={cn(
+          "text-[10px] font-semibold tracking-wide uppercase",
+          tone === "alert" ? "text-status-wait-foreground/80" : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-0.5 text-sm leading-snug",
+          tone === "alert" ? "font-medium" : "font-normal",
+        )}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 
