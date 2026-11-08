@@ -1,24 +1,59 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { DoctorSelectPage } from "@/components/doctor/doctor-select-page";
-import { listDoctors } from "@/lib/data/doctors";
+import { notFound, redirect } from "next/navigation";
+import { DoctorDashboardPage } from "@/components/doctor/doctor-dashboard-page";
+import { listDoctorInbox } from "@/lib/data/doctor-consultations";
+import { getDefaultDoctor } from "@/lib/data/doctors";
 
-export default function MedicPage() {
+type PageProps = {
+  searchParams: Promise<{ chat?: string; tab?: string }>;
+};
+
+export default function MedicPage({ searchParams }: PageProps) {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto flex min-h-dvh max-w-3xl items-center justify-center px-6 text-sm text-muted-foreground">
-          Se încarcă medicii…
+        <main className="mx-auto max-w-7xl px-4 py-10 text-sm text-muted-foreground">
+          Se încarcă dashboard-ul medicului…
         </main>
       }
     >
-      <MedicDoctors />
+      <MedicDashboard searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function MedicDoctors() {
+async function MedicDashboard({ searchParams }: PageProps) {
+  const params = await searchParams;
+  if (params.chat || params.tab) {
+    const query = new URLSearchParams();
+    if (params.chat) {
+      query.set("chat", params.chat);
+    }
+    if (params.tab) {
+      query.set("tab", params.tab);
+    }
+    redirect(`/medic/consultatii?${query.toString()}`);
+  }
+
   await connection();
-  const doctors = await listDoctors();
-  return <DoctorSelectPage initialDoctors={doctors} />;
+  const doctor = await getDefaultDoctor();
+  if (!doctor) {
+    notFound();
+  }
+
+  const [requested, active, closed] = await Promise.all([
+    listDoctorInbox(doctor.id, "requested"),
+    listDoctorInbox(doctor.id, "active"),
+    listDoctorInbox(doctor.id, "closed"),
+  ]);
+
+  return (
+    <DoctorDashboardPage
+      doctor={doctor}
+      requested={requested}
+      active={active}
+      closed={closed}
+    />
+  );
 }

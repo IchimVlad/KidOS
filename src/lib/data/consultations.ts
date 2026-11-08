@@ -66,6 +66,8 @@ export async function listConversationsForPatient(
 export async function createConsultationForPatient(input: {
   patientId: string;
   requestedByProfileId?: string;
+  initialMessage?: string;
+  totalFee?: number;
 }): Promise<ConversationWithSenders> {
   const prisma = getPrismaClient();
   const patient = await prisma.patientProfile.findUnique({
@@ -88,13 +90,16 @@ export async function createConsultationForPatient(input: {
     patient.relationshipsAsPatient[0]?.managerProfileId ??
     patient.id;
 
+  const totalFee = input.totalFee ?? 150;
+  const platformCommission = Math.round(totalFee * 0.15 * 100) / 100;
+
   const consultation = await prisma.consultation.create({
     data: {
       patientProfileId: patient.id,
       requestedByProfileId,
       status: "REQUESTED",
-      totalFee: 150,
-      platformCommission: 22.5,
+      totalFee,
+      platformCommission,
       currency: "RON",
     },
     include: {
@@ -102,6 +107,25 @@ export async function createConsultationForPatient(input: {
       messages: true,
     },
   });
+
+  const initialText = input.initialMessage?.trim().slice(0, 2000) ?? "";
+  let messages: Array<ChatMessage & { sender: "patient" | "doctor" }> = [];
+
+  if (initialText.length > 0) {
+    const message = await prisma.consultationMessage.create({
+      data: {
+        consultationId: consultation.id,
+        sender: "PATIENT",
+        content: initialText,
+        delivery: "PENDING",
+      },
+    });
+    messages = [mapMessage(message)];
+    await prisma.consultation.update({
+      where: { id: consultation.id },
+      data: { updatedAt: new Date() },
+    });
+  }
 
   return {
     id: consultation.id,
@@ -113,7 +137,7 @@ export async function createConsultationForPatient(input: {
     status: mapConsultationStatus(consultation.status),
     createdAt: toIsoDateTime(consultation.createdAt),
     updatedAt: toIsoDateTime(consultation.updatedAt),
-    messages: [],
+    messages,
   };
 }
 

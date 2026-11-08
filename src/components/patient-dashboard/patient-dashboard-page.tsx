@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProfileAvatar } from "@/components/patient-select/avatar";
 import { DemoDialog } from "@/components/patient-select/dialog";
+import { RequestConsultationDialog } from "@/components/patient-dashboard/request-consultation-dialog";
 import {
   EmptyNote,
   FilterChips,
@@ -14,6 +15,7 @@ import {
   SectionCard,
   TextButton,
 } from "@/components/patient-dashboard/ui";
+import type { ConsultationRequestInput } from "@/lib/consultations/request-form";
 import {
   DOCUMENT_FILTERS,
   DOCUMENT_TYPE_LABEL,
@@ -42,6 +44,7 @@ type Panel =
   | { kind: "document"; document: MedicalDocument }
   | { kind: "prescription"; prescription: Prescription }
   | { kind: "ask" }
+  | { kind: "request-consult" }
   | null;
 
 export function PatientDashboardPage({
@@ -105,29 +108,8 @@ export function PatientDashboardPage({
     setPanel(null);
   }
 
-  async function requestConsultation() {
-    if (requestingConsult) {
-      return;
-    }
-    setRequestingConsult(true);
-    try {
-      const response = await fetch(
-        `/api/pacient/${dashboard.person.id}/consultations`,
-        { method: "POST" },
-      );
-      if (!response.ok) {
-        return;
-      }
-      const payload = (await response.json()) as {
-        conversation: { id: string };
-      };
-      router.push(
-        `/pacient/${dashboard.person.id}/consultatii?chat=${payload.conversation.id}`,
-      );
-      router.refresh();
-    } finally {
-      setRequestingConsult(false);
-    }
+  function openChat() {
+    router.push(`/pacient/${dashboard.person.id}/consultatii`);
   }
 
   function openActiveConsultation() {
@@ -137,6 +119,38 @@ export function PatientDashboardPage({
     router.push(
       `/pacient/${dashboard.person.id}/consultatii?chat=${dashboard.activeConsultation.id}`,
     );
+  }
+
+  async function submitConsultationRequest(
+    input: ConsultationRequestInput,
+  ) {
+    if (requestingConsult) {
+      return;
+    }
+    setRequestingConsult(true);
+    try {
+      const response = await fetch(
+        `/api/pacient/${dashboard.person.id}/consultations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        },
+      );
+      if (!response.ok) {
+        return;
+      }
+      const payload = (await response.json()) as {
+        conversation: { id: string };
+      };
+      setPanel(null);
+      router.push(
+        `/pacient/${dashboard.person.id}/consultatii?chat=${payload.conversation.id}`,
+      );
+      router.refresh();
+    } finally {
+      setRequestingConsult(false);
+    }
   }
 
   const eventDocuments =
@@ -206,22 +220,20 @@ export function PatientDashboardPage({
                 Întreabă KidOS
               </SecondaryButton>
               <PrimaryButton
-                disabled={requestingConsult}
-                onClick={() => void requestConsultation()}
+                onClick={openChat}
                 className="px-5 py-2 text-sm"
               >
-                Solicită consultație
+                Deschide chat
               </PrimaryButton>
             </div>
           </div>
 
           <div className="mt-3 flex flex-col gap-2 sm:hidden">
             <PrimaryButton
-              disabled={requestingConsult}
-              onClick={() => void requestConsultation()}
+              onClick={openChat}
               className="min-h-11 w-full px-4 py-2.5 text-sm"
             >
-              Solicită consultație
+              Deschide chat
             </PrimaryButton>
             <SecondaryButton
               onClick={() => setPanel({ kind: "ask" })}
@@ -269,6 +281,15 @@ export function PatientDashboardPage({
                 </span>
               </p>
             </div>
+          </div>
+          <div className="mt-4">
+            <PrimaryButton
+              disabled={requestingConsult}
+              onClick={() => setPanel({ kind: "request-consult" })}
+              className="min-h-11 w-full px-4 py-2.5 text-sm sm:w-auto"
+            >
+              Solicită consultație
+            </PrimaryButton>
           </div>
         </SectionCard>
 
@@ -657,6 +678,17 @@ export function PatientDashboardPage({
           <PrimaryButton onClick={closePanel}>Închide</PrimaryButton>
         </div>
       </DemoDialog>
+
+      <RequestConsultationDialog
+        key={
+          panel?.kind === "request-consult" ? "request-open" : "request-closed"
+        }
+        open={panel?.kind === "request-consult"}
+        patientName={dashboard.person.firstName}
+        busy={requestingConsult}
+        onClose={closePanel}
+        onSubmit={(input) => void submitConsultationRequest(input)}
+      />
     </div>
   );
 }

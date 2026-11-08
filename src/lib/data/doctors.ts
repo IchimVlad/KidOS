@@ -36,6 +36,11 @@ export async function getDoctorById(
   };
 }
 
+export async function getDefaultDoctor(): Promise<DoctorSummary | null> {
+  const doctors = await listDoctors();
+  return doctors.find((doctor) => doctor.isOnline) ?? doctors[0] ?? null;
+}
+
 export async function assertDoctorExists(doctorId: string): Promise<boolean> {
   const prisma = getPrismaClient();
   const doctor = await prisma.doctorProfile.findUnique({
