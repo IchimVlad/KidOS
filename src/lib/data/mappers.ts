@@ -78,15 +78,15 @@ export function consultationStatusLabel(
 ): string {
   switch (status) {
     case "REQUESTED":
-      return "În așteptare";
+      return "Așteaptă răspuns medic";
     case "ACCEPTED":
-      return "Acceptată";
+      return "Medic în conversație";
     case "IN_PROGRESS":
-      return "În desfășurare";
+      return "Medic în conversație";
     case "COMPLETED":
-      return "Finalizată";
+      return "Consultație închisă";
     case "CANCELLED":
-      return "Anulată";
+      return "Consultație anulată";
     default:
       return status;
   }

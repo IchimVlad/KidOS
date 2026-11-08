@@ -4,6 +4,7 @@ import {
   mapConsultationStatus,
   toIsoDateTime,
 } from "@/lib/data/mappers";
+import { formatConsultationTitle } from "@/lib/consultations/format";
 import type {
   ChatMessage,
   ConversationWithSenders,
@@ -14,12 +15,6 @@ import type {
   ConsultationMessageSender,
   MessageDeliveryStatus,
 } from "@prisma/client";
-
-function formatConsultationTitle(createdAt: Date): string {
-  const hours = String(createdAt.getHours()).padStart(2, "0");
-  const minutes = String(createdAt.getMinutes()).padStart(2, "0");
-  return `Consultație · ${hours}:${minutes}`;
-}
 
 function mapDelivery(delivery: MessageDeliveryStatus): MessageDelivery {
   return delivery === "SENT" ? "sent" : "pending";
@@ -134,9 +129,16 @@ export async function appendConsultationMessage(input: {
   const prisma = getPrismaClient();
   const consultation = await prisma.consultation.findUnique({
     where: { id: input.consultationId },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (!consultation) {
+    return null;
+  }
+
+  if (
+    consultation.status === "COMPLETED" ||
+    consultation.status === "CANCELLED"
+  ) {
     return null;
   }
 

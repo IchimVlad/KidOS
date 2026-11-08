@@ -40,12 +40,12 @@ export type ConversationWithSenders = Omit<Conversation, "messages"> & {
 };
 
 export const STATUS_LABEL: Record<ConsultationStatus, string> = {
-  pending: "În așteptare",
-  in_progress: "În desfășurare",
-  closed: "Închisă",
+  pending: "Așteaptă răspuns medic",
+  in_progress: "Medic în conversație",
+  closed: "Consultație închisă",
 };
 
 export const DELIVERY_LABEL: Record<MessageDelivery, string> = {
-  pending: "În așteptare",
-  sent: "Trimis",
+  pending: "Așteaptă medic",
+  sent: "Trimis medicului",
 };
