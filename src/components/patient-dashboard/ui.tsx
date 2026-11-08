@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
+export function DemoBadge() {
+  return (
+    <p className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+      Date demonstrative · nesalvate
+    </p>
+  );
+}
+
 export function SectionCard({
   title,
   action,

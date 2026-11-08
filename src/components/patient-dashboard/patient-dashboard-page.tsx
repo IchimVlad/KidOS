@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ProfileAvatar } from "@/components/patient-select/avatar";
 import { DemoDialog } from "@/components/patient-select/dialog";
 import {
@@ -50,6 +50,8 @@ export function PatientDashboardPage({
   dashboard: PatientDashboard;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
   const [documentFilter, setDocumentFilter] = useState<DocumentType | "all">(
     "all",
