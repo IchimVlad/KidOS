@@ -20,7 +20,6 @@ import {
 import {
   appendMessage,
   createConversation,
-  getConsultationsStore,
   listConversationsForPatient,
   subscribeConsultations,
 } from "@/lib/consultations/store";
@@ -88,16 +87,11 @@ export function ConsultationsPage() {
       : `/pacient/${patientId}`;
   }, [patientId, searchParams]);
 
-  const storeVersion = useSyncExternalStore(
+  const conversations = useSyncExternalStore(
     subscribeConsultations,
-    () => JSON.stringify(getConsultationsStore()),
-    () => "",
+    () => listConversationsForPatient(patientId),
+    () => [],
   );
-
-  const conversations = useMemo(() => {
-    void storeVersion;
-    return listConversationsForPatient(patientId);
-  }, [patientId, storeVersion]);
 
   const chatFromUrl = searchParams.get("chat");
   const activeId =
