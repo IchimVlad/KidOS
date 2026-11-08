@@ -40,22 +40,32 @@ export const MEDICAL_EXTRACTION_LABEL: Record<
   currentTreatments: "Tratamente curente",
 };
 
+export function splitMedicalProfileValues(value: string | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(/\r?\n|[;,•·]+/)
+    .map((item) => item.replace(/^\s*[-*]\s*/, "").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .map((item) => item.charAt(0).toLocaleUpperCase("ro-RO") + item.slice(1));
+}
+
 export function mergeMedicalFacts(
   existing: string | null,
   facts: MedicalFact[],
 ): string | null {
-  const lines = (existing ?? "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines = splitMedicalProfileValues(existing);
   const known = new Set(lines.map((line) => line.toLocaleLowerCase()));
 
   for (const fact of facts) {
-    const value = fact.value.trim();
-    const normalized = value.toLocaleLowerCase();
-    if (value && !known.has(normalized)) {
-      lines.push(value);
-      known.add(normalized);
+    for (const value of splitMedicalProfileValues(fact.value)) {
+      const normalized = value.toLocaleLowerCase();
+      if (!known.has(normalized)) {
+        lines.push(value);
+        known.add(normalized);
+      }
     }
   }
 

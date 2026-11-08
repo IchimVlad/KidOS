@@ -72,6 +72,7 @@ enum TimelineEventType {
   ANALYSIS
   VACCINATION
   TREATMENT_CHANGE
+  PROFILE_UPDATE
 
   @@map("timeline_event_type")
 }

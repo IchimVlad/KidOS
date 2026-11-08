@@ -56,6 +56,8 @@ export function mapTimelineEventType(
       return "vaccination";
     case "TREATMENT_CHANGE":
       return "treatment_change";
+    case "PROFILE_UPDATE":
+      return "profile_update";
     default:
       return "observation";
   }

@@ -2,9 +2,11 @@ import "server-only";
 
 import {
   MEDICAL_EXTRACTION_CATEGORIES,
+  MEDICAL_EXTRACTION_LABEL,
   medicalExtractionSchema,
   medicalExtractionSelectionSchema,
   mergeMedicalFacts,
+  splitMedicalProfileValues,
   type MedicalExtraction,
   type MedicalExtractionSelection,
 } from "@/lib/medical-extraction";
@@ -172,9 +174,13 @@ export async function reviewMedicalExtraction(input: {
         ) {
           return { status: "invalid-selection" };
         }
-        selectedFacts[category] = indices.map(
-          (index) => data.data[category][index],
-        );
+        selectedFacts[category] = indices.flatMap((index) => {
+          const fact = data.data[category][index];
+          return splitMedicalProfileValues(fact.value).map((value) => ({
+            ...fact,
+            value,
+          }));
+        });
       }
 
       const selectedCount = MEDICAL_EXTRACTION_CATEGORIES.reduce(
@@ -231,10 +237,76 @@ export async function reviewMedicalExtraction(input: {
         return { status: "field-limit" };
       }
 
+      const newlyAddedFacts: MedicalExtraction = {
+        allergies: [],
+        chronicConditions: [],
+        currentTreatments: [],
+      };
+      const existingValues: Record<
+        (typeof MEDICAL_EXTRACTION_CATEGORIES)[number],
+        string[]
+      > = {
+        allergies: splitMedicalProfileValues(profile.allergies),
+        chronicConditions: splitMedicalProfileValues(
+          profile.chronicConditions,
+        ),
+        currentTreatments: splitMedicalProfileValues(
+          profile.currentTreatments,
+        ),
+      };
+      for (const category of MEDICAL_EXTRACTION_CATEGORIES) {
+        const existing = new Set(
+          existingValues[category].map((value) => value.toLocaleLowerCase()),
+        );
+        newlyAddedFacts[category] = selectedFacts[category].filter((fact) => {
+          const normalized = fact.value.toLocaleLowerCase();
+          if (existing.has(normalized)) {
+            return false;
+          }
+          existing.add(normalized);
+          return true;
+        });
+      }
+
       await transaction.patientProfile.update({
         where: { id: proposal.patientProfileId },
         data: profileUpdates,
       });
+      if (
+        MEDICAL_EXTRACTION_CATEGORIES.some(
+          (category) => newlyAddedFacts[category].length > 0,
+        )
+      ) {
+        const detail = MEDICAL_EXTRACTION_CATEGORIES.flatMap((category) => {
+          const facts = newlyAddedFacts[category];
+          return facts.length > 0
+            ? [
+                `${MEDICAL_EXTRACTION_LABEL[category]}:\n${facts.map((fact) => `- ${fact.value}`).join("\n")}`,
+              ]
+            : [];
+        }).join("\n\n");
+        const summary = MEDICAL_EXTRACTION_CATEGORIES.flatMap((category) => {
+          const facts = newlyAddedFacts[category];
+          return facts.length > 0
+            ? [
+                `${MEDICAL_EXTRACTION_LABEL[category]}: ${facts.map((fact) => fact.value).join(", ")}`,
+              ]
+            : [];
+        }).join(" · ");
+
+        await transaction.medicalTimelineEvent.create({
+          data: {
+            patientProfileId: proposal.patientProfileId,
+            source: "PROFILE",
+            eventType: "PROFILE_UPDATE",
+            title: "Profil medical actualizat",
+            symptom: "Actualizare informații medicale",
+            severity: "LOW",
+            summary,
+            detail,
+          },
+        });
+      }
       await transaction.medicalExtractionProposal.update({
         where: { id: proposal.id },
         data: { status: "ACCEPTED", reviewedAt: new Date() },
