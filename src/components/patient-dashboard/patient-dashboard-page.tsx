@@ -58,6 +58,7 @@ export function PatientDashboardPage({
   );
   const [panel, setPanel] = useState<Panel>(null);
   const [requestingConsult, setRequestingConsult] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const documentsById = useMemo(() => {
     return new Map(dashboard.documents.map((document) => [document.id, document]));
@@ -104,6 +105,40 @@ export function PatientDashboardPage({
     setPanel(null);
   }
 
+  async function requestConsultation() {
+    if (requestingConsult) {
+      return;
+    }
+    setRequestingConsult(true);
+    try {
+      const response = await fetch(
+        `/api/pacient/${dashboard.person.id}/consultations`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        return;
+      }
+      const payload = (await response.json()) as {
+        conversation: { id: string };
+      };
+      router.push(
+        `/pacient/${dashboard.person.id}/consultatii?chat=${payload.conversation.id}`,
+      );
+      router.refresh();
+    } finally {
+      setRequestingConsult(false);
+    }
+  }
+
+  function openActiveConsultation() {
+    if (dashboard.activeConsultation == null) {
+      return;
+    }
+    router.push(
+      `/pacient/${dashboard.person.id}/consultatii?chat=${dashboard.activeConsultation.id}`,
+    );
+  }
+
   const eventDocuments =
     panel?.kind === "event"
       ? panel.event.documentIds
@@ -121,212 +156,188 @@ export function PatientDashboardPage({
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <header className="border-b border-border/80">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
-          <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
-            <Link
-              href="/"
-              className="flex shrink-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <img
-                src="/kidos-logo.png"
-                alt=""
-                width={28}
-                height={28}
-                className="size-7"
+        <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+              <Link
+                href="/"
+                className="flex shrink-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <img
+                  src="/kidos-logo.png"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="size-7"
+                />
+                <span className="text-sm font-semibold tracking-tight text-foreground">
+                  Kidos
+                </span>
+              </Link>
+              <div
+                className="hidden h-4 w-px shrink-0 bg-border sm:block"
+                aria-hidden="true"
               />
-              <span className="text-sm font-semibold tracking-tight text-foreground">
-                Kidos
-              </span>
-            </Link>
-            <div className="hidden h-4 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
-            <Link
-              href={`/pacient/${dashboard.person.id}/istoric-familial${queryString ? `?${queryString}` : ""}`}
-              className="inline-flex items-center justify-center rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
-            >
-              Istoric familial
-            </Link>
-            <Link
-              href="/"
-              className="truncate text-sm font-medium text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              Schimbă persoana
-            </Link>
+              <Link
+                href="/"
+                className="truncate text-sm font-medium text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                Schimbă persoana
+              </Link>
+            </div>
+
+            <div className="hidden shrink-0 items-center gap-2 sm:flex sm:gap-3">
+              <SecondaryButton
+                onClick={() => setPanel({ kind: "ask" })}
+                className="px-4 py-2 text-sm"
+              >
+                Întreabă KidOS
+              </SecondaryButton>
+              <PrimaryButton
+                disabled={requestingConsult}
+                onClick={() => void requestConsultation()}
+                className="px-5 py-2 text-sm"
+              >
+                Solicită consultație
+              </PrimaryButton>
+            </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <SecondaryButton
-              onClick={() => setPanel({ kind: "ask" })}
-              className="px-3 py-2 text-xs sm:px-4 sm:text-sm"
-            >
-              Întreabă KidOS
-            </SecondaryButton>
+          <div className="mt-3 flex flex-col gap-2 sm:hidden">
             <PrimaryButton
               disabled={requestingConsult}
-              onClick={async () => {
-                if (requestingConsult) {
-                  return;
-                }
-                setRequestingConsult(true);
-                try {
-                  const response = await fetch(
-                    `/api/pacient/${dashboard.person.id}/consultations`,
-                    { method: "POST" },
-                  );
-                  if (!response.ok) {
-                    return;
-                  }
-                  const payload = (await response.json()) as {
-                    conversation: { id: string };
-                  };
-                  router.push(
-                    `/pacient/${dashboard.person.id}/consultatii?chat=${payload.conversation.id}`,
-                  );
-                  router.refresh();
-                } finally {
-                  setRequestingConsult(false);
-                }
-              }}
-              className="px-3 py-2 text-xs sm:px-5 sm:text-sm"
+              onClick={() => void requestConsultation()}
+              className="min-h-11 w-full px-4 py-2.5 text-sm"
             >
               Solicită consultație
             </PrimaryButton>
+            <SecondaryButton
+              onClick={() => setPanel({ kind: "ask" })}
+              className="min-h-11 w-full px-4 py-2.5 text-sm"
+            >
+              Întreabă KidOS
+            </SecondaryButton>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,38%)_minmax(0,1fr)]">
-          <aside className="flex min-w-0 flex-col gap-6">
-            <SectionCard
-              title="Profil"
-              className={sexCardClass(dashboard.person.sex)}
-              action={
-                <TextButton onClick={() => setPanel({ kind: "edit-profile" })}>
-                  Editează profilul
-                </TextButton>
-              }
-            >
-              <div className="flex items-center gap-4">
-                <ProfileAvatar
-                  label={dashboard.person.firstName}
-                  size="md"
-                  sex={dashboard.person.sex}
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-4 py-5 sm:gap-5 sm:px-6 sm:py-6 md:grid-cols-[minmax(0,38%)_minmax(0,1fr)] md:grid-rows-[auto_auto_auto_auto] md:gap-6 md:py-8">
+        <SectionCard
+          title="Profil"
+          className={cn(
+            "order-1 min-w-0 md:col-start-1 md:row-start-1 md:order-none",
+            sexCardClass(dashboard.person.sex),
+          )}
+          action={
+            <TextButton onClick={() => setPanel({ kind: "edit-profile" })}>
+              Editează profilul
+            </TextButton>
+          }
+        >
+          <div className="flex items-center gap-3 sm:gap-4">
+            <ProfileAvatar
+              label={dashboard.person.firstName}
+              size="md"
+              sex={dashboard.person.sex}
+            />
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 truncate text-lg font-semibold tracking-tight sm:text-xl">
+                <span
+                  className={sexDotClass(dashboard.person.sex)}
+                  aria-hidden="true"
                 />
-                <div className="min-w-0">
-                  <p className="flex items-center gap-2 truncate text-xl font-semibold tracking-tight">
-                    <span
-                      className={sexDotClass(dashboard.person.sex)}
-                      aria-hidden="true"
-                    />
-                    {dashboard.person.firstName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {dashboard.person.ageLabel}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {RELATION_LABEL[dashboard.person.relation]} ·{" "}
-                    {SEX_LABEL[dashboard.person.sex]}
-                  </p>
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="Sumar de sănătate"
-              className={cn(
-                dashboard.person.sex === "female" && "border-sex-female/25",
-                dashboard.person.sex === "male" && "border-sex-male/25",
-              )}
-            >
-              <div className="space-y-5">
-                <SummaryBlock
-                  title="Alergii"
-                  items={dashboard.health.allergies.map((item) => ({
-                    text: displayValue(item.text),
-                    source: sourceLabel(item.source),
-                  }))}
-                />
-                <SummaryBlock
-                  title="Afecțiuni cunoscute"
-                  items={dashboard.health.conditions.map((item) => ({
-                    text: displayValue(item.text),
-                    source: sourceLabel(item.source),
-                  }))}
-                />
-                <SummaryBlock
-                  title="Tratamente curente"
-                  items={dashboard.health.currentTreatments.map((item) => ({
-                    text: displayValue(item.text),
-                    source: sourceLabel(item.source),
-                  }))}
-                />
-                <div>
-                  <h3 className="mb-2 text-sm font-medium">Ultimele măsurători</h3>
-                  <ul className="space-y-3">
-                    {dashboard.health.measurements.map((measurement) => (
-                      <li key={measurement.id} className="text-sm">
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="font-medium">{measurement.label}</span>
-                          <span>
-                            {measurement.value == null
-                              ? "Nespecificat"
-                              : `${measurement.value}${measurement.unit ? ` ${measurement.unit}` : ""}`}
-                          </span>
-                        </div>
-                        <MetaLine>
-                          {formatDemoDate(measurement.recordedAt)}
-                          {sourceLabel(measurement.source)
-                            ? ` · ${sourceLabel(measurement.source)}`
-                            : ""}
-                        </MetaLine>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </SectionCard>
-          </aside>
-
-          <SectionCard
-            title="Timeline medical"
-            emphasized
-            className="flex min-h-0 min-w-0 flex-col overflow-hidden md:h-0 md:min-h-full"
-            bodyClassName="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden"
-            action={
-              <span className="text-xs text-muted-foreground">
-                Cele mai recente primele
-              </span>
-            }
-          >
-            <div className="shrink-0">
-              <FilterChips
-                label="Filtre timeline"
-                options={TIMELINE_FILTERS}
-                value={timelineFilter}
-                onChange={setTimelineFilter}
-              />
+                {dashboard.person.firstName}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {dashboard.person.ageLabel}
+                <span className="text-muted-foreground/80">
+                  {" "}
+                  · {RELATION_LABEL[dashboard.person.relation]} ·{" "}
+                  {SEX_LABEL[dashboard.person.sex]}
+                </span>
+              </p>
             </div>
+          </div>
+        </SectionCard>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-                {filteredEvents.length === 0 ? (
-                  <EmptyNote>
-                    Nu există evenimente pentru acest filtru.
-                  </EmptyNote>
-                ) : (
-                <ol className="relative space-y-0 border-l border-border pl-6">
-                  {filteredEvents.map((event, index) => (
-                    <li key={event.id} className="relative pb-8 last:pb-0">
-                      <span
+        {dashboard.activeConsultation ? (
+          <SectionCard
+            title="Consultație activă"
+            className="order-2 min-w-0 md:col-start-2 md:row-start-3 md:order-none"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-medium">
+                  {dashboard.activeConsultation.title}
+                </p>
+                <MetaLine>
+                  {dashboard.activeConsultation.statusLabel}
+                </MetaLine>
+              </div>
+              <TextButton onClick={openActiveConsultation}>
+                Deschide conversația
+              </TextButton>
+            </div>
+          </SectionCard>
+        ) : null}
+
+        <SectionCard
+          title="Timeline medical"
+          emphasized
+          className="order-3 flex min-h-0 min-w-0 flex-col md:col-start-2 md:row-span-2 md:row-start-1 md:order-none md:h-0 md:min-h-full"
+          bodyClassName="flex min-h-0 flex-1 flex-col gap-4 sm:gap-5"
+          action={
+            <span className="text-xs text-muted-foreground">
+              Cele mai recente primele
+            </span>
+          }
+        >
+          <div className="shrink-0">
+            <FilterChips
+              label="Filtre timeline"
+              options={TIMELINE_FILTERS}
+              value={timelineFilter}
+              onChange={setTimelineFilter}
+            />
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain overflow-x-visible">
+            {filteredEvents.length === 0 ? (
+              <EmptyNote>
+                Nu există evenimente pentru acest filtru.
+              </EmptyNote>
+            ) : (
+              <ol className="space-y-0 py-2 pl-4">
+                {filteredEvents.map((event, index) => {
+                  const isLast = index === filteredEvents.length - 1;
+                  const isLatest = index === 0;
+                  return (
+                    <li key={event.id} className="flex gap-3 sm:gap-4">
+                      <div
+                        className="relative flex w-5 shrink-0 justify-center self-stretch overflow-visible"
                         aria-hidden="true"
-                        className={cn(
-                          "absolute top-1.5 -left-[1.91rem] size-3 rounded-full border-2 border-background bg-foreground",
-                          index === 0 && "ring-4 ring-foreground/10",
-                        )}
-                      />
+                      >
+                        <span
+                          className={cn(
+                            "absolute left-1/2 w-px -translate-x-1/2 bg-border",
+                            isLatest ? "top-4" : "top-0",
+                            isLast ? "h-4" : "bottom-0",
+                          )}
+                        />
+                        <span className="relative z-10 mt-2.5 flex size-3 shrink-0 items-center justify-center">
+                          {isLatest ? (
+                            <span className="timeline-pulse-ring pointer-events-none absolute inset-0 rounded-full" />
+                          ) : null}
+                          <span className="relative size-3 rounded-full border-2 border-background bg-foreground shadow-[0_0_0_4px] shadow-foreground/10" />
+                        </span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => openEvent(event)}
-                        className="w-full rounded-xl p-3 text-left transition-colors duration-150 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className={cn(
+                          "min-w-0 flex-1 rounded-xl p-2.5 text-left transition-colors duration-150 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-3",
+                          !isLast && "mb-2 sm:mb-3",
+                        )}
                       >
                         <div className="flex flex-wrap items-center gap-2">
                           <time
@@ -347,96 +358,93 @@ export function PatientDashboardPage({
                         <p className="mt-2 font-semibold tracking-tight">
                           {event.title}
                         </p>
-                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                           {event.summary}
                         </p>
                         <MetaLine>{event.source}</MetaLine>
                       </button>
                     </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          </SectionCard>
-        </div>
-
-        {dashboard.activeConsultation ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,38%)_minmax(0,1fr)]">
-            <SectionCard
-              title="Consultație activă"
-              className="min-w-0 md:col-start-2"
-            >
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="font-medium">
-                    {dashboard.activeConsultation.title}
-                  </p>
-                  <MetaLine>
-                    {dashboard.activeConsultation.statusLabel}
-                  </MetaLine>
-                </div>
-                <TextButton
-                  onClick={() => {
-                    if (dashboard.activeConsultation == null) {
-                      return;
-                    }
-                    router.push(
-                      `/pacient/${dashboard.person.id}/consultatii?chat=${dashboard.activeConsultation.id}`,
-                    );
-                  }}
-                >
-                  Deschide conversația
-                </TextButton>
-              </div>
-            </SectionCard>
-          </div>
-        ) : null}
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,38%)_minmax(0,1fr)]">
-          <CoverageCard dashboard={dashboard} />
-
-          <SectionCard title="Documente medicale" className="min-w-0">
-            <div className="mb-4">
-              <FilterChips
-                label="Filtre documente"
-                options={DOCUMENT_FILTERS}
-                value={documentFilter}
-                onChange={setDocumentFilter}
-              />
-            </div>
-            {filteredDocuments.length === 0 ? (
-              <EmptyNote>
-                Nu există documente pentru acest filtru.
-              </EmptyNote>
-            ) : (
-              <ul className="divide-y divide-border">
-                {filteredDocuments.map((document) => {
-                  const relatedEvent = document.eventId
-                    ? dashboard.events.find(
-                        (event) => event.id === document.eventId,
-                      )
-                    : null;
-                  return (
-                    <li key={document.id}>
-                      <button
-                        type="button"
-                        onClick={() => openDocument(document)}
-                        className="flex w-full flex-col gap-1 py-3 text-left transition-colors duration-150 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <span className="font-medium">{document.title}</span>
-                        <MetaLine>
-                          {DOCUMENT_TYPE_LABEL[document.type]} ·{" "}
-                          {formatDemoDate(document.date)}
-                          {relatedEvent ? ` · ${relatedEvent.title}` : ""}
-                        </MetaLine>
-                      </button>
-                    </li>
                   );
                 })}
-              </ul>
+              </ol>
             )}
-          </SectionCard>
+          </div>
+        </SectionCard>
+
+        <section
+          className={cn(
+            "order-4 min-w-0 rounded-2xl border border-border bg-background p-4 sm:p-5 md:col-start-1 md:row-start-2 md:order-none md:p-6",
+            dashboard.person.sex === "female" && "border-sex-female/25",
+            dashboard.person.sex === "male" && "border-sex-male/25",
+          )}
+        >
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left md:pointer-events-none"
+            aria-expanded={summaryOpen}
+            onClick={() => setSummaryOpen((current) => !current)}
+          >
+            <h2 className="text-base font-semibold tracking-tight sm:text-lg">
+              Sumar de sănătate
+            </h2>
+            <span
+              className="text-sm text-muted-foreground md:hidden"
+              aria-hidden="true"
+            >
+              {summaryOpen ? "Ascunde" : "Arată"}
+            </span>
+          </button>
+          <div className={cn("mt-4", !summaryOpen && "hidden md:block")}>
+            <HealthSummaryContent dashboard={dashboard} />
+          </div>
+        </section>
+
+        <div className="order-5 min-w-0 md:col-start-1 md:row-start-4 md:order-none">
+          <CoverageCard dashboard={dashboard} />
         </div>
+
+        <SectionCard
+          title="Documente medicale"
+          className="order-6 min-w-0 md:col-start-2 md:row-start-4 md:order-none"
+        >
+          <div className="mb-4">
+            <FilterChips
+              label="Filtre documente"
+              options={DOCUMENT_FILTERS}
+              value={documentFilter}
+              onChange={setDocumentFilter}
+            />
+          </div>
+          {filteredDocuments.length === 0 ? (
+            <EmptyNote>Nu există documente pentru acest filtru.</EmptyNote>
+          ) : (
+            <ul className="divide-y divide-border">
+              {filteredDocuments.map((document) => {
+                const relatedEvent = document.eventId
+                  ? dashboard.events.find(
+                      (event) => event.id === document.eventId,
+                    )
+                  : null;
+                return (
+                  <li key={document.id}>
+                    <button
+                      type="button"
+                      onClick={() => openDocument(document)}
+                      className="flex min-h-11 w-full flex-col gap-1 py-3 text-left transition-colors duration-150 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="font-medium">{document.title}</span>
+                      <MetaLine>
+                        {DOCUMENT_TYPE_LABEL[document.type]} ·{" "}
+                        {formatDemoDate(document.date)}
+                        {relatedEvent ? ` · ${relatedEvent.title}` : ""}
+                      </MetaLine>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </SectionCard>
       </div>
 
       <DemoDialog
@@ -641,6 +649,64 @@ export function PatientDashboardPage({
   );
 }
 
+function HealthSummaryContent({
+  dashboard,
+}: {
+  dashboard: PatientDashboard;
+}) {
+  return (
+    <div className="space-y-4 sm:space-y-5">
+      <SummaryBlock
+        title="Alergii"
+        items={dashboard.health.allergies.map((item) => ({
+          text: displayValue(item.text),
+          source: sourceLabel(item.source),
+        }))}
+      />
+      <SummaryBlock
+        title="Afecțiuni cunoscute"
+        items={dashboard.health.conditions.map((item) => ({
+          text: displayValue(item.text),
+          source: sourceLabel(item.source),
+        }))}
+      />
+      <SummaryBlock
+        title="Tratamente curente"
+        items={dashboard.health.currentTreatments.map((item) => ({
+          text: displayValue(item.text),
+          source: sourceLabel(item.source),
+        }))}
+      />
+      <div>
+        <h3 className="mb-2 text-sm font-medium">Ultimele măsurători</h3>
+        <ul className="divide-y divide-border/70">
+          {dashboard.health.measurements.map((measurement) => (
+            <li
+              key={measurement.id}
+              className="flex items-baseline justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0"
+            >
+              <span className="min-w-0">
+                <span className="font-medium">{measurement.label}</span>
+                <MetaLine>
+                  {formatDemoDate(measurement.recordedAt)}
+                  {sourceLabel(measurement.source)
+                    ? ` · ${sourceLabel(measurement.source)}`
+                    : ""}
+                </MetaLine>
+              </span>
+              <span className="shrink-0 tabular-nums">
+                {measurement.value == null
+                  ? "Nespecificat"
+                  : `${measurement.value}${measurement.unit ? ` ${measurement.unit}` : ""}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function SummaryBlock({
   title,
   items,
@@ -650,10 +716,10 @@ function SummaryBlock({
 }) {
   return (
     <div>
-      <h3 className="mb-2 text-sm font-medium">{title}</h3>
-      <ul className="space-y-2">
+      <h3 className="mb-1.5 text-sm font-medium">{title}</h3>
+      <ul className="space-y-1.5">
         {items.map((item, index) => (
-          <li key={`${title}-${index}`} className="text-sm">
+          <li key={`${title}-${index}`} className="text-sm leading-relaxed">
             <p>{item.text}</p>
             {item.source && item.text !== "Nespecificat" ? (
               <MetaLine>{item.source}</MetaLine>

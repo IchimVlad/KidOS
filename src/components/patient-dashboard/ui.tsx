@@ -27,21 +27,21 @@ export function SectionCard({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-border bg-background p-5 sm:p-6",
-        emphasized && "border-foreground/15 sm:p-7",
+        "rounded-2xl border border-border bg-background p-4 sm:p-5 md:p-6",
+        emphasized && "border-foreground/15 sm:p-6 md:p-7",
         className,
       )}
     >
-      <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
+      <div className="mb-3 flex shrink-0 flex-col gap-2 sm:mb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <h2
           className={cn(
             "font-semibold tracking-tight text-foreground",
-            emphasized ? "text-xl sm:text-2xl" : "text-base sm:text-lg",
+            emphasized ? "text-lg sm:text-xl md:text-2xl" : "text-base sm:text-lg",
           )}
         >
           {title}
         </h2>
-        {action}
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       <div className={cn(bodyClassName)}>{children}</div>
     </section>
@@ -63,7 +63,7 @@ export function FilterChips<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className="flex flex-wrap gap-2"
+      className="-mx-1 flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0 [&::-webkit-scrollbar]:hidden"
     >
       {options.map((option) => {
         const active = option.id === value;
@@ -74,7 +74,7 @@ export function FilterChips<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(option.id)}
             className={cn(
-              "rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-150",
+              "shrink-0 rounded-full px-3 py-2 text-sm font-medium transition-colors duration-150 md:py-1.5",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               active
                 ? "bg-foreground text-background"
