@@ -8,7 +8,16 @@ import {
   mapSexToDb,
 } from "@/lib/data/mappers";
 import { getPrismaClient } from "@/lib/prisma";
-import type { PatientProfile, PatientRelation, PatientSex } from "@/lib/patient-select";
+import type {
+  PatientProfile,
+  PatientRelation,
+  PatientSex,
+  ProfileMedicalDetails,
+} from "@/lib/patient-select";
+
+/** Aceleași etichete ca în `src/lib/data/nutrition.ts`. */
+const WEIGHT_LABEL = "Greutate";
+const HEIGHT_LABEL = "Înălțime";
 
 export async function listProfilesForSpace(
   spaceId: string = DEFAULT_PROFILE_SPACE_ID,
@@ -37,7 +46,7 @@ export async function listProfilesForSpace(
   });
 }
 
-export async function createProfileInSpace(input: {
+export async function createProfileInSpace(input: ProfileMedicalDetails & {
   firstName: string;
   lastName?: string;
   relation: PatientRelation;
@@ -63,6 +72,16 @@ export async function createProfileInSpace(input: {
       })
     )?.id;
 
+  const now = new Date();
+  const measurements = [
+    input.heightCm != null
+      ? { label: HEIGHT_LABEL, value: String(input.heightCm), unit: "cm" }
+      : null,
+    input.weightKg != null
+      ? { label: WEIGHT_LABEL, value: String(input.weightKg), unit: "kg" }
+      : null,
+  ].filter((measurement) => measurement != null);
+
   const created = await prisma.patientProfile.create({
     data: {
       profileSpaceId: spaceId,
@@ -71,6 +90,24 @@ export async function createProfileInSpace(input: {
       dateOfBirth: input.dateOfBirth,
       sex: mapSexToDb(input.sex),
       preferredName: firstName,
+      bloodType: input.bloodType ?? null,
+      allergies: input.allergies ?? null,
+      chronicConditions: input.chronicConditions ?? null,
+      currentTreatments: input.currentTreatments ?? null,
+      pastSurgeries: input.pastSurgeries ?? null,
+      vaccinationStatus: input.vaccinationStatus ?? null,
+      familyDoctor: input.familyDoctor ?? null,
+      insurance: input.insurance ?? null,
+      emergencyContactName: input.emergencyContactName ?? null,
+      emergencyContactPhone: input.emergencyContactPhone ?? null,
+      notes: input.notes ?? null,
+      measurements: {
+        create: measurements.map((measurement) => ({
+          ...measurement,
+          recordedAt: now,
+          source: "DECLARED" as const,
+        })),
+      },
     },
   });
 
