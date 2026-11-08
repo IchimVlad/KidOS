@@ -41,7 +41,7 @@ export function sourceLabel(source: InfoSource | undefined): string | null {
     return "Declarat de utilizator";
   }
   if (source === "consultation") {
-    return "Din consultație demonstrativă";
+    return "Din consultație";
   }
   return null;
 }

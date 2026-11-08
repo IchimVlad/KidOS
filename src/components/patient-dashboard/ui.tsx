@@ -40,14 +40,6 @@ export function SectionCard({
   );
 }
 
-export function DemoBadge() {
-  return (
-    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-      Date demonstrative
-    </p>
-  );
-}
-
 export function FilterChips<T extends string>({
   options,
   value,
@@ -129,18 +121,22 @@ export function PrimaryButton({
   children,
   onClick,
   className,
+  disabled,
 }: {
   children: ReactNode;
   onClick: () => void;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "inline-flex items-center justify-center rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity duration-150 hover:opacity-90",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "disabled:cursor-not-allowed disabled:opacity-40",
         className,
       )}
     >

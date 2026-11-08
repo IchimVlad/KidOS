@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ProfileAvatar } from "@/components/patient-select/avatar";
 import { DemoDialog } from "@/components/patient-select/dialog";
 import {
-  DemoBadge,
   EmptyNote,
   FilterChips,
   MetaLine,
@@ -15,9 +14,6 @@ import {
   SectionCard,
   TextButton,
 } from "@/components/patient-dashboard/ui";
-import { setActivePatientId } from "@/lib/active-patient";
-import { createConversation } from "@/lib/consultations/store";
-import { getPatientDashboard } from "@/lib/patient-dashboard/fixtures";
 import {
   DOCUMENT_FILTERS,
   DOCUMENT_TYPE_LABEL,
@@ -31,18 +27,12 @@ import {
 import type {
   DocumentType,
   MedicalDocument,
+  PatientDashboard,
   Prescription,
   TimelineEvent,
   TimelineFilter,
 } from "@/lib/patient-dashboard/types";
-import {
-  RELATION_LABEL,
-  SEX_LABEL,
-  patientRelationSchema,
-  patientSexSchema,
-  type PatientRelation,
-  type PatientSex,
-} from "@/lib/patient-select";
+import { RELATION_LABEL, SEX_LABEL } from "@/lib/patient-select";
 import { sexCardClass, sexDotClass } from "@/lib/patient-sex";
 import { cn } from "@/lib/utils";
 
@@ -54,43 +44,18 @@ type Panel =
   | { kind: "ask" }
   | null;
 
-function resolveRelation(raw: string | null): PatientRelation {
-  const parsed = patientRelationSchema.safeParse(raw);
-  return parsed.success ? parsed.data : "self";
-}
-
-function resolveSex(raw: string | null): PatientSex {
-  const parsed = patientSexSchema.safeParse(raw);
-  return parsed.success ? parsed.data : "female";
-}
-
-export function PatientDashboardPage() {
+export function PatientDashboardPage({
+  dashboard,
+}: {
+  dashboard: PatientDashboard;
+}) {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
-  const searchParams = useSearchParams();
-  const profileId = typeof params.id === "string" ? params.id : "";
-
-  const dashboard = useMemo(() => {
-    if (profileId.length === 0) {
-      return getPatientDashboard("profile_andi");
-    }
-    const firstName = searchParams.get("nume") ?? undefined;
-    const relation = resolveRelation(searchParams.get("relatie"));
-    const sex = resolveSex(searchParams.get("sex"));
-    return getPatientDashboard(profileId, firstName, relation, sex);
-  }, [profileId, searchParams]);
-
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
   const [documentFilter, setDocumentFilter] = useState<DocumentType | "all">(
     "all",
   );
   const [panel, setPanel] = useState<Panel>(null);
-
-  useEffect(() => {
-    if (profileId.startsWith("profile_")) {
-      setActivePatientId(profileId);
-    }
-  }, [profileId]);
+  const [requestingConsult, setRequestingConsult] = useState(false);
 
   const documentsById = useMemo(() => {
     return new Map(dashboard.documents.map((document) => [document.id, document]));
@@ -120,12 +85,6 @@ export function PatientDashboardPage() {
       .slice()
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [dashboard.documents, documentFilter]);
-
-  const sortedPrescriptions = useMemo(() => {
-    return dashboard.prescriptions
-      .slice()
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [dashboard.prescriptions]);
 
   function openEvent(event: TimelineEvent) {
     setPanel({ kind: "event", event });
@@ -164,27 +123,29 @@ export function PatientDashboardPage() {
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
             <Link
               href="/"
-              className="shrink-0 text-sm font-semibold tracking-[0.18em] text-foreground/70 uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="flex shrink-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              KidOS
+              <img
+                src="/kidos-logo.png"
+                alt=""
+                width={28}
+                height={28}
+                className="size-7"
+              />
+              <span className="text-sm font-semibold tracking-tight text-foreground">
+                Kidos
+              </span>
             </Link>
             <div className="hidden h-4 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
-            <p className="flex min-w-0 items-center gap-2 truncate text-sm text-foreground">
-              <span className={sexDotClass(dashboard.person.sex)} aria-hidden="true" />
-              <span className="truncate">
-                <span className="text-muted-foreground">Pacient activ · </span>
-                <span className="font-medium">{dashboard.person.firstName}</span>
-              </span>
-            </p>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <Link
               href="/"
-              className="hidden text-sm font-medium text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:inline"
+              className="truncate text-sm font-medium text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               Schimbă persoana
             </Link>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <SecondaryButton
               onClick={() => setPanel({ kind: "ask" })}
               className="px-3 py-2 text-xs sm:px-4 sm:text-sm"
@@ -192,17 +153,30 @@ export function PatientDashboardPage() {
               Întreabă KidOS
             </SecondaryButton>
             <PrimaryButton
-              onClick={() => {
-                setActivePatientId(dashboard.person.id);
-                const created = createConversation({
-                  patientId: dashboard.person.id,
-                  patientName: dashboard.person.firstName,
-                });
-                const query = new URLSearchParams(searchParams.toString());
-                query.set("chat", created.id);
-                router.push(
-                  `/pacient/${dashboard.person.id}/consultatii?${query.toString()}`,
-                );
+              disabled={requestingConsult}
+              onClick={async () => {
+                if (requestingConsult) {
+                  return;
+                }
+                setRequestingConsult(true);
+                try {
+                  const response = await fetch(
+                    `/api/pacient/${dashboard.person.id}/consultations`,
+                    { method: "POST" },
+                  );
+                  if (!response.ok) {
+                    return;
+                  }
+                  const payload = (await response.json()) as {
+                    conversation: { id: string };
+                  };
+                  router.push(
+                    `/pacient/${dashboard.person.id}/consultatii?chat=${payload.conversation.id}`,
+                  );
+                  router.refresh();
+                } finally {
+                  setRequestingConsult(false);
+                }
               }}
               className="px-3 py-2 text-xs sm:px-5 sm:text-sm"
             >
@@ -210,21 +184,11 @@ export function PatientDashboardPage() {
             </PrimaryButton>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-7xl px-4 pb-3 sm:hidden sm:px-6">
-          <Link
-            href="/"
-            className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            Schimbă persoana
-          </Link>
-        </div>
       </header>
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <DemoBadge />
-
         <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,38%)_minmax(0,1fr)]">
-          <aside className="flex min-w-0 flex-col gap-6 md:row-start-1">
+          <aside className="flex min-w-0 flex-col gap-6">
             <SectionCard
               title="Profil"
               className={sexCardClass(dashboard.person.sex)}
@@ -258,27 +222,6 @@ export function PatientDashboardPage() {
                 </div>
               </div>
             </SectionCard>
-
-            {dashboard.activeConsultation ? (
-              <SectionCard title="Consultație activă" className="md:hidden">
-                <p className="font-medium">{dashboard.activeConsultation.title}</p>
-                <MetaLine>{dashboard.activeConsultation.statusLabel}</MetaLine>
-                <div className="mt-3">
-                  <TextButton
-                    onClick={() => {
-                      const event = dashboard.events.find(
-                        (item) => item.id === dashboard.activeConsultation?.id,
-                      );
-                      if (event) {
-                        openEvent(event);
-                      }
-                    }}
-                  >
-                    Vezi în timeline
-                  </TextButton>
-                </div>
-              </SectionCard>
-            ) : null}
 
             <SectionCard
               title="Sumar de sănătate"
@@ -334,117 +277,117 @@ export function PatientDashboardPage() {
                 </div>
               </div>
             </SectionCard>
-
-            <div className="hidden md:block">
-              <CoverageCard dashboard={dashboard} />
-            </div>
           </aside>
 
-          <div className="flex min-w-0 flex-col gap-6 md:row-start-1 md:h-0 md:min-h-full md:overflow-hidden">
-            {dashboard.activeConsultation ? (
-              <SectionCard
-                title="Consultație activă"
-                className="hidden shrink-0 md:block"
-              >
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <p className="font-medium">
-                      {dashboard.activeConsultation.title}
-                    </p>
-                    <MetaLine>{dashboard.activeConsultation.statusLabel}</MetaLine>
-                  </div>
-                  <TextButton
-                    onClick={() => {
-                      const event = dashboard.events.find(
-                        (item) => item.id === dashboard.activeConsultation?.id,
-                      );
-                      if (event) {
-                        openEvent(event);
-                      }
-                    }}
-                  >
-                    Deschide evenimentul
-                  </TextButton>
-                </div>
-              </SectionCard>
-            ) : null}
+          <SectionCard
+            title="Timeline medical"
+            emphasized
+            className="flex min-h-0 min-w-0 flex-col overflow-hidden md:h-0 md:min-h-full"
+            bodyClassName="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden"
+            action={
+              <span className="text-xs text-muted-foreground">
+                Cele mai recente primele
+              </span>
+            }
+          >
+            <div className="shrink-0">
+              <FilterChips
+                label="Filtre timeline"
+                options={TIMELINE_FILTERS}
+                value={timelineFilter}
+                onChange={setTimelineFilter}
+              />
+            </div>
 
-            <SectionCard
-              title="Timeline medical"
-              emphasized
-              className="flex min-h-0 flex-1 flex-col overflow-hidden"
-              bodyClassName="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden"
-              action={
-                <span className="text-xs text-muted-foreground">
-                  Cele mai recente primele
-                </span>
-              }
-            >
-              <div className="shrink-0">
-                <FilterChips
-                  label="Filtre timeline"
-                  options={TIMELINE_FILTERS}
-                  value={timelineFilter}
-                  onChange={setTimelineFilter}
-                />
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
                 {filteredEvents.length === 0 ? (
                   <EmptyNote>
-                    Nu există evenimente pentru acest filtru în demonstrație.
+                    Nu există evenimente pentru acest filtru.
                   </EmptyNote>
                 ) : (
-                  <ol className="relative space-y-0 border-l border-border pl-6">
-                    {filteredEvents.map((event, index) => (
-                      <li key={event.id} className="relative pb-8 last:pb-0">
-                        <span
-                          aria-hidden="true"
-                          className={cn(
-                            "absolute top-1.5 -left-[1.91rem] size-3 rounded-full border-2 border-background bg-foreground",
-                            index === 0 && "ring-4 ring-foreground/10",
-                          )}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => openEvent(event)}
-                          className="w-full rounded-xl p-3 text-left transition-colors duration-150 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <time
-                              dateTime={event.date}
-                              className="text-xs font-medium text-muted-foreground"
-                            >
-                              {formatDemoDate(event.date)}
-                            </time>
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-                              {EVENT_TYPE_LABEL[event.type]}
+                <ol className="relative space-y-0 border-l border-border pl-6">
+                  {filteredEvents.map((event, index) => (
+                    <li key={event.id} className="relative pb-8 last:pb-0">
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "absolute top-1.5 -left-[1.91rem] size-3 rounded-full border-2 border-background bg-foreground",
+                          index === 0 && "ring-4 ring-foreground/10",
+                        )}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => openEvent(event)}
+                        className="w-full rounded-xl p-3 text-left transition-colors duration-150 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <time
+                            dateTime={event.date}
+                            className="text-xs font-medium text-muted-foreground"
+                          >
+                            {formatDemoDate(event.date)}
+                          </time>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                            {EVENT_TYPE_LABEL[event.type]}
+                          </span>
+                          {event.hasAttachment ? (
+                            <span className="text-xs text-muted-foreground">
+                              Atașament
                             </span>
-                            {event.hasAttachment ? (
-                              <span className="text-xs text-muted-foreground">
-                                Atașament
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="mt-2 font-semibold tracking-tight">
-                            {event.title}
-                          </p>
-                          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                            {event.summary}
-                          </p>
-                          <MetaLine>{event.source}</MetaLine>
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
-                )}
+                          ) : null}
+                        </div>
+                        <p className="mt-2 font-semibold tracking-tight">
+                          {event.title}
+                        </p>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                          {event.summary}
+                        </p>
+                        <MetaLine>{event.source}</MetaLine>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </SectionCard>
+        </div>
+
+        {dashboard.activeConsultation ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,38%)_minmax(0,1fr)]">
+            <SectionCard
+              title="Consultație activă"
+              className="min-w-0 md:col-start-2"
+            >
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="font-medium">
+                    {dashboard.activeConsultation.title}
+                  </p>
+                  <MetaLine>
+                    {dashboard.activeConsultation.statusLabel}
+                  </MetaLine>
+                </div>
+                <TextButton
+                  onClick={() => {
+                    if (dashboard.activeConsultation == null) {
+                      return;
+                    }
+                    router.push(
+                      `/pacient/${dashboard.person.id}/consultatii?chat=${dashboard.activeConsultation.id}`,
+                    );
+                  }}
+                >
+                  Deschide conversația
+                </TextButton>
               </div>
             </SectionCard>
           </div>
-        </div>
+        ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <SectionCard title="Documente medicale">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,38%)_minmax(0,1fr)]">
+          <CoverageCard dashboard={dashboard} />
+
+          <SectionCard title="Documente medicale" className="min-w-0">
             <div className="mb-4">
               <FilterChips
                 label="Filtre documente"
@@ -455,13 +398,15 @@ export function PatientDashboardPage() {
             </div>
             {filteredDocuments.length === 0 ? (
               <EmptyNote>
-                Nu există documente pentru acest filtru în demonstrație.
+                Nu există documente pentru acest filtru.
               </EmptyNote>
             ) : (
               <ul className="divide-y divide-border">
                 {filteredDocuments.map((document) => {
                   const relatedEvent = document.eventId
-                    ? dashboard.events.find((event) => event.id === document.eventId)
+                    ? dashboard.events.find(
+                        (event) => event.id === document.eventId,
+                      )
                     : null;
                   return (
                     <li key={document.id}>
@@ -474,9 +419,7 @@ export function PatientDashboardPage() {
                         <MetaLine>
                           {DOCUMENT_TYPE_LABEL[document.type]} ·{" "}
                           {formatDemoDate(document.date)}
-                          {relatedEvent
-                            ? ` · ${relatedEvent.title}`
-                            : ""}
+                          {relatedEvent ? ` · ${relatedEvent.title}` : ""}
                         </MetaLine>
                       </button>
                     </li>
@@ -485,47 +428,13 @@ export function PatientDashboardPage() {
               </ul>
             )}
           </SectionCard>
-
-          <SectionCard title="Prescripții">
-            {sortedPrescriptions.length === 0 ? (
-              <EmptyNote>
-                Nu există prescripții demonstrative pentru acest profil.
-              </EmptyNote>
-            ) : (
-              <ul className="divide-y divide-border">
-                {sortedPrescriptions.map((prescription) => (
-                  <li key={prescription.id}>
-                    <button
-                      type="button"
-                      onClick={() => openPrescription(prescription)}
-                      className="flex w-full flex-col gap-1 py-3 text-left transition-colors duration-150 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span className="font-medium">{prescription.title}</span>
-                      <MetaLine>
-                        {formatDemoDate(prescription.date)} ·{" "}
-                        {prescription.doctorName}
-                      </MetaLine>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-              Lista nu confirmă dacă o prescripție este încă valabilă sau dacă
-              tratamentul este urmat.
-            </p>
-          </SectionCard>
-        </div>
-
-        <div className="md:hidden">
-          <CoverageCard dashboard={dashboard} />
         </div>
       </div>
 
       <DemoDialog
         open={panel?.kind === "edit-profile"}
         title="Editează profilul"
-        description="Dialog demonstrativ. Nu salvează date reale și nu încarcă din nou dashboardul."
+        description="Previzualizare a datelor de profil. Editarea nu este disponibilă aici."
         onClose={closePanel}
       >
         <dl className="space-y-3 text-sm">
@@ -566,7 +475,7 @@ export function PatientDashboardPage() {
       <DemoDialog
         open={panel?.kind === "event"}
         title={panel?.kind === "event" ? panel.event.title : "Eveniment"}
-        description="Detalii demonstrative ale evenimentului din timeline."
+        description="Detalii ale evenimentului din timeline."
         onClose={closePanel}
         size="lg"
       >
@@ -633,7 +542,7 @@ export function PatientDashboardPage() {
         title={
           panel?.kind === "document" ? panel.document.title : "Document"
         }
-        description="Previzualizare demonstrativă. Fără descărcare sau upload."
+        description="Previzualizare document. Fără descărcare sau upload."
         onClose={closePanel}
         size="md"
       >
@@ -674,7 +583,7 @@ export function PatientDashboardPage() {
             ? panel.prescription.title
             : "Prescripție"
         }
-        description="Detalii demonstrative ale prescripției. Nu confirmă valabilitatea."
+        description="Detalii ale prescripției. Nu confirmă valabilitatea curentă."
         onClose={closePanel}
         size="md"
       >
@@ -709,13 +618,12 @@ export function PatientDashboardPage() {
       <DemoDialog
         open={panel?.kind === "ask"}
         title="Întreabă KidOS"
-        description="Asistentul nu este activ în această demonstrație."
+        description="Asistentul nu este activ momentan."
         onClose={closePanel}
       >
         <p className="text-sm leading-relaxed text-muted-foreground">
           KidOS nu generează răspunsuri medicale aici. Poți folosi timeline-ul și
-          documentele pentru a revizui istoricul demonstrativ al persoanei
-          selectate.
+          documentele pentru a revizui istoricul persoanei selectate.
         </p>
         <div className="flex justify-end pt-2">
           <PrimaryButton onClick={closePanel}>Închide</PrimaryButton>
@@ -752,7 +660,7 @@ function SummaryBlock({
 function CoverageCard({
   dashboard,
 }: {
-  dashboard: ReturnType<typeof getPatientDashboard>;
+  dashboard: PatientDashboard;
 }) {
   return (
     <SectionCard title="Medici și acoperire">

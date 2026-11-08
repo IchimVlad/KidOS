@@ -1,7 +1,13 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 import { PatientDashboardPage } from "@/components/patient-dashboard/patient-dashboard-page";
+import { getPatientDashboardById } from "@/lib/data/dashboard";
 
-export default function PacientPage() {
+type PageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default function PacientPage({ params }: PageProps) {
   return (
     <Suspense
       fallback={
@@ -10,7 +16,17 @@ export default function PacientPage() {
         </main>
       }
     >
-      <PatientDashboardPage />
+      <PacientDashboard params={params} />
     </Suspense>
   );
+}
+
+async function PacientDashboard({ params }: PageProps) {
+  const { id } = await params;
+  const dashboard = await getPatientDashboardById(id);
+  if (!dashboard) {
+    notFound();
+  }
+
+  return <PatientDashboardPage dashboard={dashboard} />;
 }

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 // ------------------------------------------------------
@@ -18,6 +18,20 @@ enum ProfileRelationshipType {
   OTHER
 
   @@map("profile_relationship_type")
+}
+
+enum PatientSex {
+  FEMALE
+  MALE
+
+  @@map("patient_sex")
+}
+
+enum InfoSource {
+  DECLARED
+  CONSULTATION
+
+  @@map("info_source")
 }
 
 enum TriageSessionStatus {
@@ -52,6 +66,25 @@ enum MedicalEventSource {
   @@map("medical_event_source")
 }
 
+enum TimelineEventType {
+  CONSULTATION
+  OBSERVATION
+  ANALYSIS
+  VACCINATION
+  TREATMENT_CHANGE
+
+  @@map("timeline_event_type")
+}
+
+enum DocumentType {
+  ANALYSIS
+  LETTER
+  DISCHARGE
+  OTHER
+
+  @@map("document_type")
+}
+
 enum ConsultationStatus {
   REQUESTED
   ACCEPTED
@@ -60,6 +93,20 @@ enum ConsultationStatus {
   CANCELLED
 
   @@map("consultation_status")
+}
+
+enum ConsultationMessageSender {
+  PATIENT
+  DOCTOR
+
+  @@map("consultation_message_sender")
+}
+
+enum MessageDeliveryStatus {
+  PENDING
+  SENT
+
+  @@map("message_delivery_status")
 }
 
 enum Currency {
@@ -84,15 +131,22 @@ model ProfileSpace {
 }
 
 model PatientProfile {
-  id                String   @id @default(uuid()) @db.Uuid
-  profileSpaceId    String   @map("profile_space_id") @db.Uuid
-  firstName         String   @map("first_name") @db.VarChar(50)
-  lastName          String   @map("last_name") @db.VarChar(100)
-  dateOfBirth       DateTime @map("date_of_birth") @db.Date
-  allergies         String?  @db.Text
-  chronicConditions String?  @map("chronic_conditions") @db.Text
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String     @id @default(uuid()) @db.Uuid
+  profileSpaceId     String     @map("profile_space_id") @db.Uuid
+  firstName          String     @map("first_name") @db.VarChar(50)
+  lastName           String     @map("last_name") @db.VarChar(100)
+  dateOfBirth        DateTime   @map("date_of_birth") @db.Date
+  sex                PatientSex
+  preferredName      String?    @map("preferred_name") @db.VarChar(50)
+  notes              String?    @db.Text
+  allergies          String?    @db.Text
+  chronicConditions  String?    @map("chronic_conditions") @db.Text
+  currentTreatments  String?    @map("current_treatments") @db.Text
+  familyDoctor       String?    @map("family_doctor") @db.VarChar(150)
+  insurance          String?    @db.VarChar(150)
+  attendingDoctors   String[]   @default([]) @map("attending_doctors")
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   profileSpace ProfileSpace @relation(fields: [profileSpaceId], references: [id], onDelete: Cascade)
 
@@ -105,6 +159,9 @@ model PatientProfile {
   recordedTimelineEvents MedicalTimelineEvent[] @relation("TimelineRecordedBy")
   requestedConsultations Consultation[]         @relation("ConsultationPatient")
   madeConsultations      Consultation[]         @relation("ConsultationRequestedBy")
+  measurements           Measurement[]
+  documents              MedicalDocument[]
+  prescriptions          Prescription[]
 
   @@index([profileSpaceId, lastName, firstName])
   @@index([dateOfBirth])
@@ -186,19 +243,76 @@ model MedicalTimelineEvent {
   doctorProfileId     String?              @map("doctor_profile_id") @db.Uuid
   sourceSessionId     String?              @map("source_session_id") @db.Uuid
   source              MedicalEventSource
+  eventType           TimelineEventType    @map("event_type")
+  title               String               @db.VarChar(150)
   symptom             String               @db.VarChar(150)
   severity            MedicalEventSeverity @default(MEDIUM)
   summary             String?              @db.Text
+  detail              String?              @db.Text
   recordedAt          DateTime             @default(now()) @map("recorded_at") @db.Timestamptz(6)
 
-  patient       PatientProfile  @relation("TimelinePatient", fields: [patientProfileId], references: [id], onDelete: Restrict)
-  recordedBy    PatientProfile? @relation("TimelineRecordedBy", fields: [recordedByProfileId], references: [id], onDelete: Restrict)
-  doctor        DoctorProfile?  @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
-  sourceSession TriageSession?  @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
+  patient       PatientProfile    @relation("TimelinePatient", fields: [patientProfileId], references: [id], onDelete: Restrict)
+  recordedBy    PatientProfile?   @relation("TimelineRecordedBy", fields: [recordedByProfileId], references: [id], onDelete: Restrict)
+  doctor        DoctorProfile?    @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
+  sourceSession TriageSession?    @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
+  documents     MedicalDocument[]
+  prescriptions Prescription[]
 
   @@index([patientProfileId, recordedAt])
   @@index([recordedByProfileId])
   @@map("medical_timeline_events")
+}
+
+model Measurement {
+  id               String     @id @default(uuid()) @db.Uuid
+  patientProfileId String     @map("patient_profile_id") @db.Uuid
+  label            String     @db.VarChar(100)
+  value            String?    @db.VarChar(50)
+  unit             String?    @db.VarChar(30)
+  recordedAt       DateTime   @map("recorded_at") @db.Timestamptz(6)
+  source           InfoSource @default(DECLARED)
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  patient PatientProfile @relation(fields: [patientProfileId], references: [id], onDelete: Cascade)
+
+  @@index([patientProfileId, recordedAt])
+  @@map("measurements")
+}
+
+model MedicalDocument {
+  id               String       @id @default(uuid()) @db.Uuid
+  patientProfileId String       @map("patient_profile_id") @db.Uuid
+  timelineEventId  String?      @map("timeline_event_id") @db.Uuid
+  title            String       @db.VarChar(150)
+  type             DocumentType
+  date             DateTime     @db.Date
+  preview          String       @db.Text
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  patient       PatientProfile        @relation(fields: [patientProfileId], references: [id], onDelete: Cascade)
+  timelineEvent MedicalTimelineEvent? @relation(fields: [timelineEventId], references: [id], onDelete: SetNull)
+
+  @@index([patientProfileId, date])
+  @@index([timelineEventId])
+  @@map("medical_documents")
+}
+
+model Prescription {
+  id               String   @id @default(uuid()) @db.Uuid
+  patientProfileId String   @map("patient_profile_id") @db.Uuid
+  timelineEventId  String?  @map("timeline_event_id") @db.Uuid
+  title            String   @db.VarChar(150)
+  date             DateTime @db.Date
+  doctorName       String   @map("doctor_name") @db.VarChar(100)
+  instructions     String   @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  patient       PatientProfile        @relation(fields: [patientProfileId], references: [id], onDelete: Cascade)
+  timelineEvent MedicalTimelineEvent? @relation(fields: [timelineEventId], references: [id], onDelete: SetNull)
+
+  @@index([patientProfileId, date])
+  @@index([timelineEventId])
+  @@map("prescriptions")
 }
 
 model Consultation {
@@ -211,19 +325,34 @@ model Consultation {
   totalFee             Decimal            @map("total_fee") @db.Decimal(10, 2)
   platformCommission   Decimal            @map("platform_commission") @db.Decimal(10, 2)
   currency             Currency           @default(RON)
-  doctorNotes          String?            @map("doctor_notes") @db.Text // Simplu text introdus de medic la final
+  doctorNotes          String?            @map("doctor_notes") @db.Text
   startedAt            DateTime?          @map("started_at") @db.Timestamptz(6)
   endedAt              DateTime?          @map("ended_at") @db.Timestamptz(6)
   createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  patient       PatientProfile @relation("ConsultationPatient", fields: [patientProfileId], references: [id], onDelete: Restrict)
-  requestedBy   PatientProfile @relation("ConsultationRequestedBy", fields: [requestedByProfileId], references: [id], onDelete: Restrict)
-  doctor        DoctorProfile? @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
-  triageSession TriageSession? @relation(fields: [triageSessionId], references: [id], onDelete: SetNull)
+  patient       PatientProfile         @relation("ConsultationPatient", fields: [patientProfileId], references: [id], onDelete: Restrict)
+  requestedBy   PatientProfile         @relation("ConsultationRequestedBy", fields: [requestedByProfileId], references: [id], onDelete: Restrict)
+  doctor        DoctorProfile?         @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
+  triageSession TriageSession?         @relation(fields: [triageSessionId], references: [id], onDelete: SetNull)
+  messages      ConsultationMessage[]
 
   @@index([patientProfileId, createdAt])
   @@index([requestedByProfileId, createdAt])
   @@index([doctorProfileId, createdAt])
   @@map("consultations")
+}
+
+model ConsultationMessage {
+  id             String                     @id @default(uuid()) @db.Uuid
+  consultationId String                     @map("consultation_id") @db.Uuid
+  sender         ConsultationMessageSender
+  content        String                     @db.Text
+  delivery       MessageDeliveryStatus      @default(PENDING)
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  @@index([consultationId, createdAt])
+  @@map("consultation_messages")
 }

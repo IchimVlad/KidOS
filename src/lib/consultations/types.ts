@@ -16,7 +16,7 @@ export const chatMessageSchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1).max(2000),
   sentAt: z.string().min(1),
-  sender: z.literal("patient"),
+  sender: z.enum(["patient", "doctor"]),
   delivery: messageDeliverySchema,
 });
 
@@ -35,13 +35,9 @@ export const conversationSchema = z.object({
 
 export type Conversation = z.infer<typeof conversationSchema>;
 
-export const consultationsStoreSchema = z.object({
-  conversations: z.array(conversationSchema),
-});
-
-export type ConsultationsStore = z.infer<typeof consultationsStoreSchema>;
-
-export const CONSULTATIONS_STORAGE_KEY = "consultations";
+export type ConversationWithSenders = Omit<Conversation, "messages"> & {
+  messages: Array<ChatMessage & { sender: "patient" | "doctor" }>;
+};
 
 export const STATUS_LABEL: Record<ConsultationStatus, string> = {
   pending: "În așteptare",

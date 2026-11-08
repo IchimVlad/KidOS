@@ -5,12 +5,11 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DemoDialog,
   DialogActions,
@@ -22,37 +21,14 @@ import {
   previewText,
 } from "@/lib/consultations/format";
 import {
-  appendMessage,
-  createConversation,
-  deleteConversation,
-  getEmptyConversationsSnapshot,
-  listConversationsForPatient,
-  subscribeConsultations,
-} from "@/lib/consultations/store";
-import {
   DELIVERY_LABEL,
   STATUS_LABEL,
+  type ChatMessage,
   type ConsultationStatus,
-  type Conversation,
+  type ConversationWithSenders,
 } from "@/lib/consultations/types";
-import { getPatientDashboard } from "@/lib/patient-dashboard/fixtures";
-import {
-  patientRelationSchema,
-  patientSexSchema,
-  type PatientRelation,
-  type PatientSex,
-} from "@/lib/patient-select";
+import type { PatientSex } from "@/lib/patient-select";
 import { cn } from "@/lib/utils";
-
-function resolveRelation(raw: string | null): PatientRelation {
-  const parsed = patientRelationSchema.safeParse(raw);
-  return parsed.success ? parsed.data : "self";
-}
-
-function resolveSex(raw: string | null): PatientSex {
-  const parsed = patientSexSchema.safeParse(raw);
-  return parsed.success ? parsed.data : "female";
-}
 
 function statusClass(status: ConsultationStatus): string {
   if (status === "pending") {
@@ -64,41 +40,40 @@ function statusClass(status: ConsultationStatus): string {
   return "border-border bg-muted text-muted-foreground";
 }
 
-export function ConsultationsPage() {
+type UiConversation = ConversationWithSenders;
+
+export function ConsultationsPage({
+  patientId,
+  patientName,
+  patientSex,
+  initialConversations,
+}: {
+  patientId: string;
+  patientName: string;
+  patientSex: PatientSex;
+  initialConversations: UiConversation[];
+}) {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
-  const patientId = typeof params.id === "string" ? params.id : "";
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState("");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [conversations, setConversations] =
+    useState<UiConversation[]>(initialConversations);
+  const [conversationsBaseline, setConversationsBaseline] =
+    useState(initialConversations);
   const [mobileShowChat, setMobileShowChat] = useState(
     () => searchParams.get("chat") != null,
   );
 
-  const patient = useMemo(() => {
-    const firstName = searchParams.get("nume") ?? undefined;
-    const relation = resolveRelation(searchParams.get("relatie"));
-    const sex = resolveSex(searchParams.get("sex"));
-    return getPatientDashboard(patientId, firstName, relation, sex).person;
-  }, [patientId, searchParams]);
+  if (initialConversations !== conversationsBaseline) {
+    setConversationsBaseline(initialConversations);
+    setConversations(initialConversations);
+  }
 
-  const dashboardHref = useMemo(() => {
-    const query = new URLSearchParams(searchParams.toString());
-    query.delete("chat");
-    query.delete("nou");
-    const value = query.toString();
-    return value.length > 0
-      ? `/pacient/${patientId}?${value}`
-      : `/pacient/${patientId}`;
-  }, [patientId, searchParams]);
-
-  const conversations = useSyncExternalStore(
-    subscribeConsultations,
-    () => listConversationsForPatient(patientId),
-    getEmptyConversationsSnapshot,
-  );
+  const dashboardHref = `/pacient/${patientId}`;
 
   const chatFromUrl = searchParams.get("chat");
   const activeId =
@@ -121,82 +96,133 @@ export function ConsultationsPage() {
   }, [activeConversation?.messages.length, activeId]);
 
   function openConversation(conversationId: string) {
-    const query = new URLSearchParams(searchParams.toString());
-    query.set("chat", conversationId);
-    query.delete("nou");
     router.replace(
-      `/pacient/${patientId}/consultatii?${query.toString()}`,
+      `/pacient/${patientId}/consultatii?chat=${conversationId}`,
     );
     setMobileShowChat(true);
   }
 
-  function handleNewChat() {
-    const created = createConversation({
-      patientId,
-      patientName: patient.firstName,
-    });
-    openConversation(created.id);
-    setDraft("");
-    inputRef.current?.focus();
+  async function handleNewChat() {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/pacient/${patientId}/consultations`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        return;
+      }
+      const payload = (await response.json()) as {
+        conversation: UiConversation;
+      };
+      setConversations((current) => [payload.conversation, ...current]);
+      openConversation(payload.conversation.id);
+      setDraft("");
+      inputRef.current?.focus();
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
   function clearActiveChatFromUrl() {
-    const query = new URLSearchParams(searchParams.toString());
-    query.delete("chat");
-    query.delete("nou");
-    const value = query.toString();
-    router.replace(
-      value.length > 0
-        ? `/pacient/${patientId}/consultatii?${value}`
-        : `/pacient/${patientId}/consultatii`,
-    );
+    router.replace(`/pacient/${patientId}/consultatii`);
     setMobileShowChat(false);
     setDraft("");
   }
 
-  function handleConfirmDelete() {
-    if (pendingDeleteId == null) {
+  async function handleConfirmDelete() {
+    if (pendingDeleteId == null || busy) {
       return;
     }
 
     const deletedId = pendingDeleteId;
     const wasActive = deletedId === activeId;
-    deleteConversation(deletedId);
-    setPendingDeleteId(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/consultations/${deletedId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        return;
+      }
 
-    if (!wasActive) {
+      const remaining = conversations.filter(
+        (conversation) => conversation.id !== deletedId,
+      );
+      setConversations(remaining);
+      setPendingDeleteId(null);
+      router.refresh();
+
+      if (!wasActive) {
+        return;
+      }
+
+      if (remaining[0]) {
+        openConversation(remaining[0].id);
+        setDraft("");
+        return;
+      }
+
+      clearActiveChatFromUrl();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendMessage(text: string) {
+    if (activeConversation == null || text.trim().length === 0 || busy) {
       return;
     }
 
-    const remaining = listConversationsForPatient(patientId);
-    if (remaining[0]) {
-      openConversation(remaining[0].id);
+    setBusy(true);
+    try {
+      const response = await fetch(
+        `/api/consultations/${activeConversation.id}/messages`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        },
+      );
+      if (!response.ok) {
+        return;
+      }
+      const payload = (await response.json()) as {
+        message: ChatMessage & { sender: "patient" | "doctor" };
+      };
+      const now = new Date().toISOString();
+      setConversations((current) =>
+        current.map((conversation) => {
+          if (conversation.id !== activeConversation.id) {
+            return conversation;
+          }
+          return {
+            ...conversation,
+            updatedAt: now,
+            messages: [...conversation.messages, payload.message],
+          };
+        }),
+      );
       setDraft("");
-      return;
+      inputRef.current?.focus();
+      router.refresh();
+    } finally {
+      setBusy(false);
     }
-
-    clearActiveChatFromUrl();
   }
 
   function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (activeConversation == null || draft.trim().length === 0) {
-      return;
-    }
-
-    appendMessage(activeConversation.id, draft);
-    setDraft("");
-    inputRef.current?.focus();
+    void sendMessage(draft);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (activeConversation == null || draft.trim().length === 0) {
-        return;
-      }
-      appendMessage(activeConversation.id, draft);
-      setDraft("");
+      void sendMessage(draft);
     }
   }
 
@@ -215,17 +241,18 @@ export function ConsultationsPage() {
             </Link>
             <div className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
             <p className="truncate text-sm">
-              <span className="font-semibold tracking-[0.14em] text-foreground/70 uppercase">
-                KidOS
+              <span className="font-semibold tracking-tight text-foreground">
+                Kidos
               </span>
               <span className="text-muted-foreground"> · Consultații · </span>
-              <span className="font-medium">{patient.firstName}</span>
+              <span className="font-medium">{patientName}</span>
             </p>
           </div>
           <button
             type="button"
-            onClick={handleNewChat}
-            className="inline-flex shrink-0 items-center justify-center rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={() => void handleNewChat()}
+            disabled={busy}
+            className="inline-flex shrink-0 items-center justify-center rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-40"
           >
             Chat nou
           </button>
@@ -242,7 +269,7 @@ export function ConsultationsPage() {
           <div className="shrink-0 border-b border-border px-4 py-3">
             <h1 className="text-base font-semibold tracking-tight">Conversații</h1>
             <p className="mt-1 text-xs text-muted-foreground">
-              Date demonstrative. Mesajele rămân locale pe acest dispozitiv.
+              Mesajele sunt salvate în baza de date.
             </p>
           </div>
 
@@ -266,9 +293,9 @@ export function ConsultationsPage() {
                     className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   >
                     <ProfileAvatar
-                      label={patient.firstName}
+                      label={patientName}
                       size="sm"
-                      sex={patient.sex}
+                      sex={patientSex}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-start justify-between gap-2">
@@ -343,8 +370,8 @@ export function ConsultationsPage() {
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6">
                 {activeConversation.messages.length === 0 ? (
                   <p className="rounded-2xl border border-dashed border-border bg-background/80 px-4 py-6 text-center text-sm text-muted-foreground">
-                    Scrie primul mesaj. Momentan nu există răspunsuri automate —
-                    mesajele rămân „În așteptare”.
+                    Scrie primul mesaj. Răspunsurile medicului apar aici când
+                    există.
                   </p>
                 ) : (
                   groupByDay(activeConversation.messages).map((group) => (
@@ -352,20 +379,49 @@ export function ConsultationsPage() {
                       <p className="sticky top-0 z-10 mx-auto w-fit rounded-full bg-background/90 px-3 py-1 text-[11px] font-medium text-muted-foreground">
                         {group.day}
                       </p>
-                      {group.messages.map((message) => (
-                        <div key={message.id} className="flex justify-end">
-                          <div className="max-w-[85%] rounded-2xl rounded-br-md bg-foreground px-3.5 py-2 text-background sm:max-w-[70%]">
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                              {message.text}
-                            </p>
-                            <p className="mt-1 flex items-center justify-end gap-2 text-[10px] text-background/70">
-                              <span>{formatChatTime(message.sentAt)}</span>
-                              <span>·</span>
-                              <span>{DELIVERY_LABEL[message.delivery]}</span>
-                            </p>
+                      {group.messages.map((message) => {
+                        const fromPatient = message.sender === "patient";
+                        return (
+                          <div
+                            key={message.id}
+                            className={cn(
+                              "flex",
+                              fromPatient ? "justify-end" : "justify-start",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "max-w-[85%] rounded-2xl px-3.5 py-2 sm:max-w-[70%]",
+                                fromPatient
+                                  ? "rounded-br-md bg-foreground text-background"
+                                  : "rounded-bl-md border border-border bg-background text-foreground",
+                              )}
+                            >
+                              <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                                {message.text}
+                              </p>
+                              <p
+                                className={cn(
+                                  "mt-1 flex items-center gap-2 text-[10px]",
+                                  fromPatient
+                                    ? "justify-end text-background/70"
+                                    : "justify-start text-muted-foreground",
+                                )}
+                              >
+                                <span>{formatChatTime(message.sentAt)}</span>
+                                {fromPatient ? (
+                                  <>
+                                    <span>·</span>
+                                    <span>
+                                      {DELIVERY_LABEL[message.delivery]}
+                                    </span>
+                                  </>
+                                ) : null}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ))
                 )}
@@ -393,7 +449,7 @@ export function ConsultationsPage() {
                   />
                   <button
                     type="submit"
-                    disabled={draft.trim().length === 0}
+                    disabled={draft.trim().length === 0 || busy}
                     className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-35"
                     aria-label="Trimite mesajul"
                   >
@@ -410,12 +466,13 @@ export function ConsultationsPage() {
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Selectează un chat din stânga sau creează unul nou pentru{" "}
-                  {patient.firstName}.
+                  {patientName}.
                 </p>
                 <button
                   type="button"
-                  onClick={handleNewChat}
-                  className="inline-flex items-center justify-center rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90"
+                  onClick={() => void handleNewChat()}
+                  disabled={busy}
+                  className="inline-flex items-center justify-center rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   Chat nou
                 </button>
@@ -428,13 +485,14 @@ export function ConsultationsPage() {
       <DemoDialog
         open={pendingDeleteId != null}
         title="Ștergi conversația?"
-        description="Mesajele vor fi eliminate de pe acest dispozitiv. Acțiunea nu poate fi anulată."
+        description="Mesajele vor fi eliminate din baza de date. Acțiunea nu poate fi anulată."
         onClose={() => setPendingDeleteId(null)}
       >
         <DialogActions
           onCancel={() => setPendingDeleteId(null)}
-          onConfirm={handleConfirmDelete}
+          onConfirm={() => void handleConfirmDelete()}
           confirmLabel="Șterge"
+          disabled={busy}
         />
       </DemoDialog>
     </div>
@@ -454,8 +512,13 @@ function StatusPill({ status }: { status: ConsultationStatus }) {
   );
 }
 
-function groupByDay(messages: Conversation["messages"]) {
-  const groups: { day: string; messages: Conversation["messages"] }[] = [];
+function groupByDay(
+  messages: Array<ChatMessage & { sender: "patient" | "doctor" }>,
+) {
+  const groups: {
+    day: string;
+    messages: Array<ChatMessage & { sender: "patient" | "doctor" }>;
+  }[] = [];
 
   for (const message of messages) {
     const day = formatChatDay(message.sentAt);

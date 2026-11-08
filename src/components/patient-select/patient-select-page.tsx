@@ -1,16 +1,11 @@
 "use client";
 
-import { useId, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ProfileAvatar } from "@/components/patient-select/avatar";
 import { DemoDialog, DialogActions } from "@/components/patient-select/dialog";
 import {
-  getActivePatientId,
-  setActivePatientId,
-  subscribeActivePatient,
-} from "@/lib/active-patient";
-import {
-  DEMO_PROFILES,
   RELATION_LABEL,
   SEX_LABEL,
   patientRelationSchema,
@@ -24,24 +19,16 @@ import { cn } from "@/lib/utils";
 
 type DialogKind = "add" | "manage" | null;
 
-function profileHref(profile: PatientProfile): string {
-  const params = new URLSearchParams({
-    nume: profile.firstName,
-    relatie: profile.relation,
-    sex: profile.sex,
-  });
-  return `/pacient/${profile.id}?${params.toString()}`;
-}
-
-export function PatientSelectPage() {
+export function PatientSelectPage({
+  initialProfiles,
+}: {
+  initialProfiles: PatientProfile[];
+}) {
+  const router = useRouter();
   const addFormId = useId();
-  const [profiles, setProfiles] = useState<PatientProfile[]>(DEMO_PROFILES);
-  const selectedId = useSyncExternalStore(
-    subscribeActivePatient,
-    getActivePatientId,
-    () => null,
-  );
+  const [profiles, setProfiles] = useState<PatientProfile[]>(initialProfiles);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [draftName, setDraftName] = useState("");
   const [draftRelation, setDraftRelation] =
@@ -55,41 +42,82 @@ export function PatientSelectPage() {
     setDraftSex("female");
   }
 
-  function handleAdd(event: FormEvent<HTMLFormElement>) {
+  async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const firstName = draftName.trim();
-    if (firstName.length === 0) {
+    if (firstName.length === 0 || pending) {
       return;
     }
 
-    const profile: PatientProfile = {
-      id: `profile_${crypto.randomUUID()}`,
-      firstName,
-      relation: draftRelation,
-      sex: draftSex,
-    };
-
-    setProfiles((current) => [...current, profile]);
-    setNotice(
-      `${firstName} a fost adăugat(ă) demonstrativ. Adăugarea nu acordă acces la date medicale reale.`,
-    );
-    closeDialog();
+    setPending(true);
+    try {
+      const response = await fetch("/api/profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          relation: draftRelation,
+          sex: draftSex,
+        }),
+      });
+      if (!response.ok) {
+        setNotice("Profilul nu a putut fi adăugat.");
+        return;
+      }
+      const payload = (await response.json()) as { profile: PatientProfile };
+      setProfiles((current) => [...current, payload.profile]);
+      setNotice(`${firstName} a fost adăugat(ă).`);
+      closeDialog();
+      router.refresh();
+    } catch {
+      setNotice("Profilul nu a putut fi adăugat.");
+    } finally {
+      setPending(false);
+    }
   }
 
-  function removeProfile(profileId: string) {
-    setProfiles((current) => current.filter((profile) => profile.id !== profileId));
-    if (selectedId === profileId) {
-      setActivePatientId(null);
-      setNotice("Profilul selectat a fost eliminat din demonstrație.");
+  async function removeProfile(profileId: string) {
+    if (pending) {
+      return;
+    }
+    setPending(true);
+    try {
+      const response = await fetch("/api/profiles", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: profileId }),
+      });
+      if (!response.ok) {
+        setNotice("Profilul nu a putut fi eliminat.");
+        return;
+      }
+      setProfiles((current) =>
+        current.filter((profile) => profile.id !== profileId),
+      );
+      setNotice("Profilul a fost eliminat.");
+      router.refresh();
+    } catch {
+      setNotice("Profilul nu a putut fi eliminat.");
+    } finally {
+      setPending(false);
     }
   }
 
   return (
     <div className="relative flex min-h-dvh flex-col overflow-y-auto bg-background text-foreground">
       <header className="px-6 pt-8 sm:px-10 sm:pt-10">
-        <p className="text-sm font-semibold tracking-[0.18em] text-foreground/70 uppercase">
-          KidOS
-        </p>
+        <div className="flex items-center gap-2">
+          <img
+            src="/kidos-logo.png"
+            alt=""
+            width={28}
+            height={28}
+            className="size-7"
+          />
+          <p className="text-sm font-semibold tracking-tight text-foreground">
+            Kidos
+          </p>
+        </div>
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-10 sm:px-10 sm:py-12">
@@ -106,8 +134,7 @@ export function PatientSelectPage() {
               return (
                 <li key={profile.id} className="w-full max-w-36 sm:w-auto">
                   <Link
-                    href={profileHref(profile)}
-                    onClick={() => setActivePatientId(profile.id)}
+                    href={`/pacient/${profile.id}`}
                     aria-label={`${profile.firstName}, ${RELATION_LABEL[profile.relation]}, ${SEX_LABEL[profile.sex]}`}
                     className={cn(
                       "group flex w-full flex-col items-center gap-4 rounded-3xl p-3 text-center transition-[transform,background-color] duration-200 ease-out",
@@ -174,7 +201,7 @@ export function PatientSelectPage() {
       <DemoDialog
         open={dialog === "add"}
         title="Adaugă o persoană"
-        description="Date demonstrative. Adăugarea unui adult nu acordă acces la datele sale medicale."
+        description="Profilul este salvat în baza de date a spațiului familiei."
         onClose={closeDialog}
       >
         <form id={addFormId} className="space-y-4" onSubmit={handleAdd}>
@@ -252,7 +279,7 @@ export function PatientSelectPage() {
             formId={addFormId}
             onCancel={closeDialog}
             confirmLabel="Adaugă"
-            disabled={draftName.trim().length === 0}
+            disabled={draftName.trim().length === 0 || pending}
           />
         </form>
       </DemoDialog>
@@ -260,7 +287,7 @@ export function PatientSelectPage() {
       <DemoDialog
         open={dialog === "manage"}
         title="Gestionează profilurile"
-        description="Poți elimina profiluri doar din această demonstrație. Nu există date medicale asociate."
+        description="Eliminarea șterge profilul și datele medicale asociate din baza de date."
         onClose={closeDialog}
       >
         <ul className="divide-y divide-border rounded-2xl border border-border">
@@ -281,7 +308,8 @@ export function PatientSelectPage() {
               <button
                 type="button"
                 onClick={() => removeProfile(profile.id)}
-                className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={pending}
+                className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
               >
                 Elimină
               </button>
