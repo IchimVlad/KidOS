@@ -22,6 +22,7 @@ pnpm install
 - `pnpm typecheck` — verificarea TypeScript
 - `pnpm test` — Vitest, o singură rulare, fără watch
 - `npm run db:generate` — generează Prisma Client
+- `npm run db:seed` — adaugă date demo fictive în baza de date
 - `npm run db:migrate:dev -- --name init` — creează și aplică prima migrare
 - `npm run db:migrate:deploy` — aplică migrările existente
 - `npm run db:studio` — deschide Prisma Studio
@@ -31,6 +32,8 @@ pnpm install
 Adaugă `DATABASE_URL` și `DATABASE_URL_UNPOOLED` în `.env` (fișierul este ignorat de Git). Aplicația folosește `DATABASE_URL`, adresa pooled, pentru interogările runtime. Prisma folosește `DATABASE_URL_UNPOOLED`, conexiunea directă, pentru migrări și unelte de dezvoltare.
 
 Schema bazei de date este în `prisma/schema.prisma`. Adaugă modele Prisma acolo, apoi rulează `npm run db:migrate:dev -- --name nume_migrare` pentru a genera și aplica o migrare. Clientul se generează automat la instalare; pentru regenerare fără migrare, folosește `npm run db:generate`.
+
+Seed-ul adaugă date fictive în limba română, într-un context din Brașov, și folosește `DATABASE_URL_UNPOOLED`. Poate fi rulat din nou: actualizează aceleași înregistrări demo și nu șterge alte date. Înainte de rulare, verifică ce bază de date este configurată în `.env`.
 
 MVP-ul nu include conturi sau autentificare. Un `ProfileSpace` conține profilurile afișate în selector, iar fiecare persoană — copil, adult sau vârstnic — este un `PatientProfile`. `ProfileRelationship` indică profilul care gestionează profilul pacientului (`PARENT`, `LEGAL_GUARDIAN`, `CAREGIVER`, `FAMILY_MEMBER` sau `OTHER`). Relația este direcțională: `managerProfileId` gestionează `patientProfileId`. Triajul, istoricul și consultațiile aparțin profilului pacientului; `startedByProfileId`, `recordedByProfileId` și `requestedByProfileId` păstrează proveniența unde e cazul.
 
