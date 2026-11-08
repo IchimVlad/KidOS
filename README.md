@@ -21,6 +21,20 @@ pnpm install
 - `pnpm lint` — ESLint
 - `pnpm typecheck` — verificarea TypeScript
 - `pnpm test` — Vitest, o singură rulare, fără watch
+- `pnpm db:generate` — generează Prisma Client
+- `pnpm db:migrate:dev` — creează și aplică o migrare locală
+- `pnpm db:migrate:deploy` — aplică migrările existente
+- `pnpm db:studio` — deschide Prisma Studio
+
+## Conexiune la Neon
+
+Adaugă `DATABASE_URL` și `DATABASE_URL_UNPOOLED` în `.env` (fișierul este ignorat de Git). Aplicația folosește `DATABASE_URL`, adresa pooled, pentru interogările runtime. Prisma folosește `DATABASE_URL_UNPOOLED`, conexiunea directă, pentru migrări și unelte de dezvoltare.
+
+Schema bazei de date este în `prisma/schema.prisma`. Adaugă modele Prisma acolo, apoi rulează `pnpm db:migrate:dev --name nume_migrare` pentru a genera și aplica o migrare. Clientul se generează automat la migrare; pentru regenerare fără migrare, folosește `pnpm db:generate`.
+
+Înainte de prima migrare, verifică dacă Neon conține deja tabele sau date. Dacă da, schema trebuie întâi introspectată și migrările Prisma trebuie inițializate fără a recrea acele tabele. În acest moment nu există migrări Prisma în proiect și nu a fost modificată schema din Neon.
+
+Pornește aplicația cu `pnpm dev` și deschide `http://localhost:3000/api/db-test` pentru a testa Prisma cu `SELECT now()`. Un răspuns `{ "ok": true, "databaseTime": "..." }` confirmă conexiunea.
 
 ## localStorage
 
