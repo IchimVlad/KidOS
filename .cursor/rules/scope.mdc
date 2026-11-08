@@ -1,0 +1,12 @@
+---
+description: Fără funcționalități sau interfețe necerute
+alwaysApply: true
+---
+
+# Domeniul lucrului
+
+Implementează doar ce este cerut explicit pentru sarcina curentă.
+
+- Nu adăuga pagini, formulare, meniuri, dashboard-uri, date demonstrative sau modele de business.
+- Nu adăuga autentificare, AI, telemedicină, programări, plăți sau alte integrări externe.
+- Nu adăuga Prisma, PostgreSQL, Docker sau alt serviciu de bază de date cât timp persistența este localStorage.
