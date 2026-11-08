@@ -367,6 +367,15 @@ export async function getDoctorPatientContext(
     ageLabel: ageLabelFromDob(profile.dateOfBirth),
     allergies: profile.allergies,
     conditions: profile.chronicConditions,
+    bloodType: profile.bloodType,
+    currentTreatments: profile.currentTreatments,
+    pastSurgeries: profile.pastSurgeries,
+    vaccinationStatus: profile.vaccinationStatus,
+    notes: profile.notes,
+    emergencyContact:
+      [profile.emergencyContactName, profile.emergencyContactPhone]
+        .filter(Boolean)
+        .join(" · ") || null,
     measurements: profile.measurements.map((measurement) => ({
       id: measurement.id,
       label: measurement.label,

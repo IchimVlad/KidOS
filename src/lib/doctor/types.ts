@@ -47,6 +47,12 @@ export type DoctorPatientContext = {
   ageLabel: string;
   allergies: string | null;
   conditions: string | null;
+  bloodType: string | null;
+  currentTreatments: string | null;
+  pastSurgeries: string | null;
+  vaccinationStatus: string | null;
+  notes: string | null;
+  emergencyContact: string | null;
   measurements: Array<{
     id: string;
     label: string;

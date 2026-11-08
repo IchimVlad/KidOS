@@ -712,6 +712,36 @@ function DoctorContextPanel({
                   Afecțiuni: {context.conditions}
                 </p>
               ) : null}
+              {context.bloodType ? (
+                <p className="text-sm text-muted-foreground">
+                  Grupa sanguină: {context.bloodType}
+                </p>
+              ) : null}
+              {context.currentTreatments ? (
+                <p className="text-sm text-muted-foreground">
+                  Tratamente curente: {context.currentTreatments}
+                </p>
+              ) : null}
+              {context.pastSurgeries ? (
+                <p className="text-sm text-muted-foreground">
+                  Operații / internări: {context.pastSurgeries}
+                </p>
+              ) : null}
+              {context.vaccinationStatus ? (
+                <p className="text-sm text-muted-foreground">
+                  Vaccinări: {context.vaccinationStatus}
+                </p>
+              ) : null}
+              {context.emergencyContact ? (
+                <p className="text-sm text-muted-foreground">
+                  Contact de urgență: {context.emergencyContact}
+                </p>
+              ) : null}
+              {context.notes ? (
+                <p className="text-sm text-muted-foreground">
+                  Note: {context.notes}
+                </p>
+              ) : null}
             </section>
 
             <section className="space-y-2">
