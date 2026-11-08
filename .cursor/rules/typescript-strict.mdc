@@ -1,0 +1,23 @@
+---
+description: TypeScript strict pentru KidOS
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# TypeScript strict
+
+`tsconfig.json` rămâne cu `"strict": true`. Nu dezactiva verificarea și nu ocoli erorile de tip.
+
+- Nu folosi `any`. Pentru valori necunoscute folosește `unknown`, apoi îngustează tipul.
+- Nu adăuga `@ts-ignore`. `@ts-expect-error` doar cu un motiv scris lângă el, când tipul nu poate fi corectat.
+- Importurile din proiect folosesc aliasul `@/*`, mapat la `src/*`.
+
+```ts
+function readName(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null || !("name" in value)) {
+    return undefined;
+  }
+
+  return typeof value.name === "string" ? value.name : undefined;
+}
+```

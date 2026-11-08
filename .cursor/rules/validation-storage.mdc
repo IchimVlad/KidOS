@@ -1,0 +1,22 @@
+---
+description: Validare Zod și interdicția datelor sensibile în localStorage
+alwaysApply: true
+---
+
+# Validare și localStorage
+
+Datele care vin din afara tipurilor TypeScript — inclusiv din `localStorage` — se validează cu Zod înainte de folosire.
+
+- Citirea trece prin `readStorage` din `src/lib/storage.ts`, cu o schemă Zod.
+- Cheile sunt prefixate cu `KidOS.`. Nu apela `localStorage` direct.
+- Nu stoca parole, tokenuri, date personale sau date medicale în localStorage.
+
+```ts
+const saved = readStorage("preference", z.object({ compact: z.boolean() }));
+
+if (!saved.ok) {
+  return;
+}
+
+saved.data.compact;
+```

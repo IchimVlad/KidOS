@@ -1,0 +1,31 @@
+---
+description: Separarea codului de server și de browser
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Server și client
+
+Componentele din `src/app` sunt Server Components, dacă nu declară `"use client"`.
+
+- Nu accesa `window`, `document` sau `localStorage` la importul unui modul.
+- Nu le accesa în timpul randării pe server. Un Client Component este randat și pe server la primul răspuns.
+- Apelurile către browser stau într-un event handler sau în `useEffect`.
+
+```tsx
+"use client";
+
+import { useEffect } from "react";
+import { readStorage } from "@/lib/storage";
+import { z } from "zod";
+
+const flagSchema = z.object({ enabled: z.boolean() });
+
+export function FlagReader() {
+  useEffect(() => {
+    readStorage("flag", flagSchema);
+  }, []);
+
+  return null;
+}
+```
