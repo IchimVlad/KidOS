@@ -55,6 +55,13 @@ function isUnspecified(text: string | null | undefined): boolean {
   );
 }
 
+function joinMedicalValues(items: { text: string | null }[]): string | null {
+  const values = items
+    .map((item) => item.text?.trim() ?? "")
+    .filter((text) => text.length > 0 && !isUnspecified(text));
+  return values.length > 0 ? values.join(", ") : null;
+}
+
 export function PatientDashboardPage({
   dashboard,
 }: {
@@ -817,6 +824,13 @@ function HealthSummaryContent({
   const treatments = splitHealthItems(
     dashboard.health.currentTreatments[0]?.text,
   );
+  const allergyText = joinMedicalValues(dashboard.health.allergies);
+  const conditionText = joinMedicalValues(dashboard.health.conditions);
+  const treatmentText = joinMedicalValues(
+    dashboard.health.currentTreatments,
+  );
+  const allergyClear = allergyText === null;
+  const conditionClear = conditionText === null;
 
   return (
     <div className="space-y-4">
@@ -826,18 +840,24 @@ function HealthSummaryContent({
           items={allergies}
           emptyLabel="Fără alergii cunoscute"
           tone="alert"
+          value={allergyText ?? "Fără alergii cunoscute"}
+          tone={allergyClear ? "clear" : "alert"}
         />
         <HealthFactList
           label="Afecțiuni"
           items={conditions}
           emptyLabel="Fără afecțiuni declarate"
           tone="alert"
+          value={conditionText ?? "Fără afecțiuni declarate"}
+          tone={conditionClear ? "clear" : "alert"}
         />
         <HealthFactList
           label="Tratamente"
           items={treatments}
           emptyLabel="Fără tratamente curente"
           tone="neutral"
+          value={treatmentText ?? "Fără tratamente curente"}
+          tone="clear"
         />
       </div>
 
