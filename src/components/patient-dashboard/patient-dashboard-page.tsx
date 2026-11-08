@@ -55,6 +55,13 @@ function isUnspecified(text: string | null | undefined): boolean {
   );
 }
 
+function joinMedicalValues(items: { text: string | null }[]): string | null {
+  const values = items
+    .map((item) => item.text?.trim() ?? "")
+    .filter((text) => text.length > 0 && !isUnspecified(text));
+  return values.length > 0 ? values.join(", ") : null;
+}
+
 export function PatientDashboardPage({
   dashboard,
 }: {
@@ -809,37 +816,30 @@ function HealthSummaryContent({
 }: {
   dashboard: PatientDashboard;
 }) {
-  const allergyText = dashboard.health.allergies[0]?.text ?? null;
-  const conditionText = dashboard.health.conditions[0]?.text ?? null;
-  const treatmentText = dashboard.health.currentTreatments[0]?.text ?? null;
-  const allergyClear = isUnspecified(allergyText);
-  const conditionClear = isUnspecified(conditionText);
-  const treatmentClear = isUnspecified(treatmentText);
+  const allergyText = joinMedicalValues(dashboard.health.allergies);
+  const conditionText = joinMedicalValues(dashboard.health.conditions);
+  const treatmentText = joinMedicalValues(
+    dashboard.health.currentTreatments,
+  );
+  const allergyClear = allergyText === null;
+  const conditionClear = conditionText === null;
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <SafetyChip
           label="Alergii"
-          value={allergyClear ? "Fără alergii cunoscute" : displayValue(allergyText)}
+          value={allergyText ?? "Fără alergii cunoscute"}
           tone={allergyClear ? "clear" : "alert"}
         />
         <SafetyChip
           label="Afecțiuni"
-          value={
-            conditionClear
-              ? "Fără afecțiuni declarate"
-              : displayValue(conditionText)
-          }
+          value={conditionText ?? "Fără afecțiuni declarate"}
           tone={conditionClear ? "clear" : "alert"}
         />
         <SafetyChip
           label="Tratamente"
-          value={
-            treatmentClear
-              ? "Fără tratamente curente"
-              : displayValue(treatmentText)
-          }
+          value={treatmentText ?? "Fără tratamente curente"}
           tone="clear"
         />
       </div>

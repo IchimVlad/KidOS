@@ -399,6 +399,21 @@ export function ConsultationsPage({
     });
   }
 
+  function selectAllMedicalFacts(draft: MedicalExtractionDraft) {
+    setMedicalSelections((current) => ({
+      ...current,
+      [draft.id]: {
+        allergies: draft.proposedData.allergies.map((_, index) => index),
+        chronicConditions: draft.proposedData.chronicConditions.map(
+          (_, index) => index,
+        ),
+        currentTreatments: draft.proposedData.currentTreatments.map(
+          (_, index) => index,
+        ),
+      },
+    }));
+  }
+
   async function reviewMedicalDraft(
     draft: MedicalExtractionDraft,
     action: "accept" | "reject",
@@ -835,12 +850,24 @@ export function ConsultationsPage({
                           key={medicalDraft.id}
                           className="mt-4 border-t border-border/70 pt-4"
                         >
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Propunere de verificat ·{" "}
-                            {new Date(medicalDraft.createdAt).toLocaleString(
-                              "ro-RO",
-                            )}
-                          </p>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Propunere de verificat ·{" "}
+                              {new Date(
+                                medicalDraft.createdAt,
+                              ).toLocaleString("ro-RO")}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                selectAllMedicalFacts(medicalDraft)
+                              }
+                              disabled={reviewingMedicalDraftId != null}
+                              className="min-h-9 rounded-chat-cta px-2 text-xs font-medium text-primary hover:bg-muted disabled:opacity-50"
+                            >
+                              Selectează toate
+                            </button>
+                          </div>
                           <div className="mt-3 space-y-4">
                             {MEDICAL_EXTRACTION_CATEGORIES.map((category) => {
                               const facts =
@@ -913,6 +940,17 @@ export function ConsultationsPage({
                                 : "Salvează selecția"}
                             </button>
                           </div>
+                          {selectedCount === 0 ? (
+                            <p className="mt-2 text-right text-xs text-muted-foreground">
+                              Bifează informațiile aprobate sau folosește
+                              „Selectează toate”, apoi confirmă salvarea.
+                            </p>
+                          ) : (
+                            <p className="mt-2 text-right text-xs text-muted-foreground">
+                              {selectedCount} informații selectate. Apasă
+                              „Salvează selecția” pentru a le adăuga în profil.
+                            </p>
+                          )}
                         </div>
                       );
                     })}

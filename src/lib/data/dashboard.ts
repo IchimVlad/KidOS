@@ -80,9 +80,9 @@ export async function getPatientDashboardById(
       },
     },
     health: {
-      allergies,
-      conditions,
-      currentTreatments,
+      allergies: mapProfileMedicalValues(profile.allergies),
+      conditions: mapProfileMedicalValues(profile.chronicConditions),
+      currentTreatments: mapProfileMedicalValues(profile.currentTreatments),
       measurements: filterPersistentMeasurements(profile.measurements).map(
         (measurement) => ({
           id: measurement.id,
