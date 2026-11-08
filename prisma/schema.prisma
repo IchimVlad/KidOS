@@ -102,6 +102,14 @@ enum ConsultationMessageSender {
   @@map("consultation_message_sender")
 }
 
+enum MedicalExtractionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+
+  @@map("medical_extraction_status")
+}
+
 enum MessageDeliveryStatus {
   PENDING
   SENT
@@ -178,6 +186,7 @@ model PatientProfile {
 
   relationshipsAsManager ProfileRelationship[]  @relation("RelationshipManager")
   relationshipsAsPatient ProfileRelationship[]  @relation("RelationshipPatient")
+  medicalExtractions     MedicalExtractionProposal[]
   triageSessions         TriageSession[]        @relation("TriagePatient")
   startedTriageSessions  TriageSession[]        @relation("TriageStartedBy")
   messages               TriageMessage[]        @relation("MessageSenderProfile")
@@ -364,6 +373,7 @@ model Consultation {
   doctor        DoctorProfile?        @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
   triageSession TriageSession?        @relation(fields: [triageSessionId], references: [id], onDelete: SetNull)
   messages      ConsultationMessage[]
+  medicalExtractions MedicalExtractionProposal[]
 
   @@index([patientProfileId, createdAt])
   @@index([requestedByProfileId, createdAt])
@@ -383,6 +393,23 @@ model ConsultationMessage {
 
   @@index([consultationId, createdAt])
   @@map("consultation_messages")
+}
+
+model MedicalExtractionProposal {
+  id               String                 @id @default(uuid()) @db.Uuid
+  consultationId   String                 @map("consultation_id") @db.Uuid
+  patientProfileId String                 @map("patient_profile_id") @db.Uuid
+  proposedData     Json                   @map("proposed_data")
+  status           MedicalExtractionStatus  @default(PENDING)
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewedAt       DateTime?              @map("reviewed_at") @db.Timestamptz(6)
+
+  consultation  Consultation   @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  patient      PatientProfile @relation(fields: [patientProfileId], references: [id], onDelete: Cascade)
+
+  @@index([consultationId, status, createdAt])
+  @@index([patientProfileId, status])
+  @@map("medical_extraction_proposals")
 }
 
 model NutritionEntry {

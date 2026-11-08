@@ -41,6 +41,8 @@ Relațiile și selectorul de profil sunt doar structură funcțională pentru de
 
 Înainte de prima migrare, verifică dacă ramura Neon conține deja tabele sau date. Dacă da, schema trebuie întâi introspectată și migrările Prisma inițializate fără a recrea acele tabele. Schema MVP nu a fost aplicată la Neon.
 
+Extragerea opțională a alergiilor, afecțiunilor cronice și tratamentelor dintr-o consultație folosește Gemini 3.6 Flash prin Interactions API. Configurează `GEMINI_API_KEY` numai în mediul serverului. Procesarea începe doar după apăsarea butonului de extragere, iar utilizatorul trebuie să selecteze și să confirme fiecare propunere înainte ca aceasta să fie adăugată la profil. Chatul selectat este transmis către Google cu `store: false`, astfel încât interacțiunea să nu fie păstrată pentru istoricul API. Disponibilitatea și limitele gratuite depind de cont, model, regiune și condițiile curente ale Google. Consultați politicile Google privind datele înainte de a folosi informații medicale reale. MVP-ul nu are autentificare sau control de acces și este destinat exclusiv datelor fictive.
+
 Pornește aplicația cu `pnpm dev` și deschide `http://localhost:3000/api/db-test` pentru a testa Prisma cu `SELECT now()`. Un răspuns `{ "ok": true, "databaseTime": "..." }` confirmă conexiunea.
 
 ## Lakebase Postgres
