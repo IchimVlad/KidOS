@@ -14,7 +14,7 @@ import {
   medicalEventSourceLabel,
   toIsoDate,
 } from "@/lib/data/mappers";
-import { filterPersistentMeasurements } from "@/lib/patient-dashboard/measurements";
+import { pickFormMeasurements } from "@/lib/patient-dashboard/measurements";
 import type { PatientDashboard } from "@/lib/patient-dashboard/types";
 import { splitMedicalProfileValues } from "@/lib/medical-extraction";
 import { getPrismaClient } from "@/lib/prisma";
@@ -80,6 +80,11 @@ export async function getPatientDashboardById(
       },
     },
     health: {
+      allergies,
+      conditions,
+      currentTreatments,
+      measurements: pickFormMeasurements(
+        profile.measurements.map((measurement) => ({
       allergies: mapProfileMedicalValues(profile.allergies),
       conditions: mapProfileMedicalValues(profile.chronicConditions),
       currentTreatments: mapProfileMedicalValues(profile.currentTreatments),
@@ -91,7 +96,7 @@ export async function getPatientDashboardById(
           unit: measurement.unit,
           recordedAt: toIsoDate(measurement.recordedAt),
           source: mapInfoSource(measurement.source),
-        }),
+        })),
       ),
     },
     coverage: {

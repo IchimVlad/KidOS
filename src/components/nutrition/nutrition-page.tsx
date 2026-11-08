@@ -34,7 +34,7 @@ import {
   type NutritionMeasurement,
   type NutritionPageData,
 } from "@/lib/nutrition/types";
-import { sexDotClass } from "@/lib/patient-sex";
+import { sexDotClass, sexThemeClass } from "@/lib/patient-sex";
 import { cn } from "@/lib/utils";
 
 const WATER_STEP_ML = 250;
@@ -209,7 +209,12 @@ export function NutritionPage({ data }: { data: NutritionPageData }) {
   }
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div
+      className={cn(
+        "min-h-dvh bg-background text-foreground",
+        sexThemeClass(person.sex),
+      )}
+    >
       <header className="flex items-center justify-between gap-4 px-6 pt-8 sm:px-10 sm:pt-10">
         <Link
           href="/"

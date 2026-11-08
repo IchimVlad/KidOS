@@ -102,13 +102,13 @@
     --sidebar-accent-foreground: #1e3a8a;
     --sidebar-border: #e5e7eb;
     --sidebar-ring: #3b82f6;
-    /* Sex accents (platform-specific) */
-    --sex-female: #ec4899;
-    --sex-female-soft: #fce7f3;
-    --sex-male: #3b82f6;
-    --sex-male-soft: #dbeafe;
-    --chat-bg: #f9fafb;
-    --chat-bg-deep: #f3f4f6;
+    /* Sex accents — calm dusty rose / soft sky */
+    --sex-female: #d989a5;
+    --sex-female-soft: #faf1f5;
+    --sex-male: #6ba3d4;
+    --sex-male-soft: #eef5fb;
+    --chat-bg: #ffffff;
+    --chat-bg-deep: #ffffff;
     --bubble-out: #3b82f6;
     --bubble-out-foreground: #ffffff;
     --bubble-in: #ffffff;
@@ -158,10 +158,10 @@
     --sidebar-accent-foreground: #e0f2fe;
     --sidebar-border: #404040;
     --sidebar-ring: #3b82f6;
-    --sex-female: #f472b6;
-    --sex-female-soft: #831843;
-    --sex-male: #60a5fa;
-    --sex-male-soft: #1e3a8a;
+    --sex-female: #e5a4bb;
+    --sex-female-soft: #4a2433;
+    --sex-male: #7eb3de;
+    --sex-male-soft: #1a3348;
     --chat-bg: #1f1f1f;
     --chat-bg-deep: #171717;
     --bubble-out: #3b82f6;
@@ -221,6 +221,89 @@
       var(--chat-bg) 0%,
       var(--chat-bg-deep) 100%
     );
+}
+
+/* Patient profile theming: female → soft rose accents, male → soft blue */
+.theme-sex-female {
+  --primary: #d989a5;
+  --primary-foreground: #ffffff;
+  --ring: #d989a5;
+  --accent: #faf1f5;
+  --accent-foreground: #8b455c;
+  --sidebar-primary: #d989a5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #faf1f5;
+  --sidebar-accent-foreground: #8b455c;
+  --sidebar-ring: #d989a5;
+  --chat-bg: #ffffff;
+  --chat-bg-deep: #ffffff;
+  --bubble-out: #d989a5;
+  --bubble-out-foreground: #ffffff;
+  --status-wait: #e0a0b6;
+  --status-wait-soft: #faf1f5;
+  --status-wait-foreground: #8b455c;
+  --status-live: #d989a5;
+  --status-live-soft: #faf1f5;
+  --status-live-foreground: #8b455c;
+}
+
+.theme-sex-male {
+  --primary: #6ba3d4;
+  --primary-foreground: #ffffff;
+  --ring: #6ba3d4;
+  --accent: #eef5fb;
+  --accent-foreground: #2f5f86;
+  --sidebar-primary: #6ba3d4;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef5fb;
+  --sidebar-accent-foreground: #2f5f86;
+  --sidebar-ring: #6ba3d4;
+  --chat-bg: #ffffff;
+  --chat-bg-deep: #ffffff;
+  --bubble-out: #6ba3d4;
+  --bubble-out-foreground: #ffffff;
+  --status-wait: #7eb3de;
+  --status-wait-soft: #eef5fb;
+  --status-wait-foreground: #2f5f86;
+  --status-live: #6ba3d4;
+  --status-live-soft: #eef5fb;
+  --status-live-foreground: #2f5f86;
+}
+
+.dark .theme-sex-female {
+  --primary: #e5a4bb;
+  --primary-foreground: #2a121c;
+  --ring: #e5a4bb;
+  --accent: #4a2433;
+  --accent-foreground: #fce7f0;
+  --chat-bg: #241820;
+  --chat-bg-deep: #1a1116;
+  --bubble-out: #e5a4bb;
+  --bubble-out-foreground: #2a121c;
+  --status-wait: #e5a4bb;
+  --status-wait-soft: #4a2433;
+  --status-wait-foreground: #fce7f0;
+  --status-live: #e5a4bb;
+  --status-live-soft: #4a2433;
+  --status-live-foreground: #fce7f0;
+}
+
+.dark .theme-sex-male {
+  --primary: #7eb3de;
+  --primary-foreground: #102033;
+  --ring: #7eb3de;
+  --accent: #1a3348;
+  --accent-foreground: #dbeafe;
+  --chat-bg: #141c24;
+  --chat-bg-deep: #0f161c;
+  --bubble-out: #7eb3de;
+  --bubble-out-foreground: #102033;
+  --status-wait: #7eb3de;
+  --status-wait-soft: #1a3348;
+  --status-wait-foreground: #dbeafe;
+  --status-live: #7eb3de;
+  --status-live-soft: #1a3348;
+  --status-live-foreground: #dbeafe;
 }
 
 .chat-panel {
