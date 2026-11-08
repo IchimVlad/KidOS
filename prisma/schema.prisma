@@ -1,11 +1,14 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
 }
+
+// ------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------
 
 enum ProfileRelationshipType {
   PARENT
@@ -64,6 +67,10 @@ enum Currency {
 
   @@map("currency")
 }
+
+// ------------------------------------------------------
+// MODELS MVP
+// ------------------------------------------------------
 
 model ProfileSpace {
   id        String   @id @default(uuid()) @db.Uuid
@@ -204,6 +211,7 @@ model Consultation {
   totalFee             Decimal            @map("total_fee") @db.Decimal(10, 2)
   platformCommission   Decimal            @map("platform_commission") @db.Decimal(10, 2)
   currency             Currency           @default(RON)
+  doctorNotes          String?            @map("doctor_notes") @db.Text // Simplu text introdus de medic la final
   startedAt            DateTime?          @map("started_at") @db.Timestamptz(6)
   endedAt              DateTime?          @map("ended_at") @db.Timestamptz(6)
   createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -215,7 +223,7 @@ model Consultation {
   triageSession TriageSession? @relation(fields: [triageSessionId], references: [id], onDelete: SetNull)
 
   @@index([patientProfileId, createdAt])
-  npm run db:migrate:dev -- --name init  @@index([requestedByProfileId, createdAt])
+  @@index([requestedByProfileId, createdAt])
   @@index([doctorProfileId, createdAt])
   @@map("consultations")
 }
