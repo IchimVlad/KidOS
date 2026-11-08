@@ -538,7 +538,9 @@ export function PatientDashboardPage({
                 {formatDemoDate(panel.event.date)}
               </span>
             </div>
-            <p className="leading-relaxed">{panel.event.detail}</p>
+            <p className="whitespace-pre-line leading-relaxed">
+              {panel.event.detail}
+            </p>
             <MetaLine>{panel.event.source}</MetaLine>
 
             <div>
@@ -763,8 +765,22 @@ function SummaryBlock({
       <h3 className="mb-1.5 text-sm font-medium">{title}</h3>
       <ul className="space-y-1.5">
         {items.map((item, index) => (
-          <li key={`${title}-${index}`} className="text-sm leading-relaxed">
-            <p>{item.text}</p>
+          <li
+            key={`${title}-${index}`}
+            className={cn(
+              "rounded-lg border border-border/70 px-3 py-2 text-sm leading-relaxed",
+              item.text !== "Nespecificat" && "bg-muted/25",
+            )}
+          >
+            <div className="flex items-start gap-2">
+              {item.text !== "Nespecificat" ? (
+                <span
+                  className="mt-2 size-1.5 shrink-0 rounded-full bg-primary"
+                  aria-hidden="true"
+                />
+              ) : null}
+              <span>{item.text}</span>
+            </div>
             {item.source && item.text !== "Nespecificat" ? (
               <MetaLine>{item.source}</MetaLine>
             ) : null}

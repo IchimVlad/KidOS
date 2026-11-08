@@ -28,6 +28,13 @@ import {
   type ConsultationStatus,
   type ConversationWithSenders,
 } from "@/lib/consultations/types";
+import {
+  MEDICAL_EXTRACTION_CATEGORIES,
+  MEDICAL_EXTRACTION_LABEL,
+  type MedicalExtractionCategory,
+  type MedicalExtractionSelection,
+} from "@/lib/medical-extraction";
+import type { MedicalExtractionDraft } from "@/lib/data/medical-extractions";
 import type { PatientSex } from "@/lib/patient-select";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +93,21 @@ export function ConsultationsPage({
   const [draft, setDraft] = useState("");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [medicalDrafts, setMedicalDrafts] = useState<MedicalExtractionDraft[]>(
+    [],
+  );
+  const [medicalDraftsConversationId, setMedicalDraftsConversationId] =
+    useState<string | null>(null);
+  const [medicalSelections, setMedicalSelections] = useState<
+    Record<string, MedicalExtractionSelection>
+  >({});
+  const [extractingMedicalInfo, setExtractingMedicalInfo] = useState(false);
+  const [reviewingMedicalDraftId, setReviewingMedicalDraftId] = useState<
+    string | null
+  >(null);
+  const [medicalExtractionMessage, setMedicalExtractionMessage] = useState<
+    string | null
+  >(null);
   const [conversations, setConversations] =
     useState<UiConversation[]>(initialConversations);
   const [conversationsBaseline, setConversationsBaseline] =
@@ -136,8 +158,39 @@ export function ConsultationsPage({
   }, [draft, activeId, mobileShowChat]);
 
   useEffect(() => {
-    setChatMenuOpen(false);
-    setListMenuId(null);
+    if (activeId == null) {
+      return;
+    }
+
+    const controller = new AbortController();
+    void fetch(`/api/consultations/${activeId}/medical-extractions`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          proposals?: MedicalExtractionDraft[];
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(
+            payload.error ?? "Propunerile medicale nu au putut fi încărcate.",
+          );
+        }
+        setMedicalDraftsConversationId(activeId);
+        setMedicalDrafts(payload.proposals ?? []);
+        setMedicalSelections({});
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setMedicalExtractionMessage(
+            error instanceof Error
+              ? error.message
+              : "Propunerile medicale nu au putut fi încărcate.",
+          );
+        }
+      });
+
+    return () => controller.abort();
   }, [activeId]);
 
   useEffect(() => {
@@ -151,7 +204,7 @@ export function ConsultationsPage({
       inputRef.current?.focus();
     }, 280);
     return () => window.clearTimeout(timeoutId);
-  }, [mobileShowChat, activeConversation?.id, activeConversation?.status]);
+  }, [mobileShowChat, activeConversation]);
 
   useEffect(() => {
     if (!chatMenuOpen && listMenuId == null) {
@@ -191,7 +244,9 @@ export function ConsultationsPage({
   }, [chatMenuOpen, listMenuId]);
 
   function openConversation(conversationId: string) {
+    setChatMenuOpen(false);
     setListMenuId(null);
+    setMedicalExtractionMessage(null);
     router.replace(
       `/pacient/${patientId}/consultatii?chat=${conversationId}`,
     );
@@ -224,6 +279,8 @@ export function ConsultationsPage({
   }
 
   function clearActiveChatFromUrl() {
+    setChatMenuOpen(false);
+    setMedicalExtractionMessage(null);
     router.replace(`/pacient/${patientId}/consultatii`);
     setMobileShowChat(false);
     setDraft("");
@@ -265,6 +322,135 @@ export function ConsultationsPage({
       clearActiveChatFromUrl();
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleExtractMedicalInfo() {
+    if (activeConversation == null || extractingMedicalInfo) {
+      return;
+    }
+    setExtractingMedicalInfo(true);
+    setMedicalExtractionMessage(null);
+    try {
+      const response = await fetch(
+        `/api/consultations/${activeConversation.id}/medical-extractions`,
+        { method: "POST" },
+      );
+      const payload = (await response.json()) as {
+        proposal?: MedicalExtractionDraft | null;
+        error?: string;
+      };
+      if (!response.ok) {
+        setMedicalExtractionMessage(
+          payload.error ?? "Extragerea nu a putut fi finalizată.",
+        );
+        return;
+      }
+      const proposal = payload.proposal;
+      if (!proposal) {
+        setMedicalExtractionMessage(
+          "Nu au fost găsite informații medicale noi în conversație.",
+        );
+        return;
+      }
+      setMedicalDrafts((current) => [...current, proposal]);
+      setMedicalDraftsConversationId(activeConversation.id);
+      setMedicalSelections((current) => ({
+        ...current,
+        [proposal.id]: {
+          allergies: [],
+          chronicConditions: [],
+          currentTreatments: [],
+        },
+      }));
+      setMedicalExtractionMessage(
+        "Verificați fiecare informație și selectați doar ce doriți să salvați.",
+      );
+    } catch {
+      setMedicalExtractionMessage(
+        "Extragerea nu a putut fi finalizată. Verificați conexiunea și încercați din nou.",
+      );
+    } finally {
+      setExtractingMedicalInfo(false);
+    }
+  }
+
+  function toggleMedicalFact(
+    proposalId: string,
+    category: MedicalExtractionCategory,
+    index: number,
+  ) {
+    setMedicalSelections((current) => {
+      const selection = current[proposalId] ?? {
+        allergies: [],
+        chronicConditions: [],
+        currentTreatments: [],
+      };
+      const indices = selection[category];
+      return {
+        ...current,
+        [proposalId]: {
+          ...selection,
+          [category]: indices.includes(index)
+            ? indices.filter((selectedIndex) => selectedIndex !== index)
+            : [...indices, index],
+        },
+      };
+    });
+  }
+
+  async function reviewMedicalDraft(
+    draft: MedicalExtractionDraft,
+    action: "accept" | "reject",
+  ) {
+    if (reviewingMedicalDraftId != null || activeConversation == null) {
+      return;
+    }
+    setReviewingMedicalDraftId(draft.id);
+    setMedicalExtractionMessage(null);
+    try {
+      const response = await fetch(
+        `/api/consultations/${activeConversation.id}/medical-extractions/${draft.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            selected: medicalSelections[draft.id] ?? {
+              allergies: [],
+              chronicConditions: [],
+              currentTreatments: [],
+            },
+          }),
+        },
+      );
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setMedicalExtractionMessage(
+          payload.error ?? "Propunerea nu a putut fi revizuită.",
+        );
+        return;
+      }
+      setMedicalDrafts((current) =>
+        current.filter((proposal) => proposal.id !== draft.id),
+      );
+      setMedicalSelections((current) => {
+        const next = { ...current };
+        delete next[draft.id];
+        return next;
+      });
+      setMedicalExtractionMessage(
+        action === "accept"
+          ? "Informațiile selectate au fost adăugate la profil."
+          : "Propunerea a fost respinsă.",
+      );
+      router.refresh();
+    } catch {
+      setMedicalExtractionMessage(
+        "Propunerea nu a putut fi revizuită. Încercați din nou.",
+      );
+    } finally {
+      setReviewingMedicalDraftId(null);
     }
   }
 
@@ -328,6 +514,10 @@ export function ConsultationsPage({
   }
 
   const showChatOnMobile = mobileShowChat && activeConversation != null;
+  const visibleMedicalDrafts =
+    medicalDraftsConversationId === activeConversation?.id
+      ? medicalDrafts
+      : [];
 
   const panelMotion =
     "transition-transform duration-300 ease-out motion-reduce:transition-none";
@@ -592,6 +782,142 @@ export function ConsultationsPage({
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+                {activeConversation.messages.some(
+                  (message) => message.sender === "patient",
+                ) ? (
+                  <section className="mb-5 rounded-chat border border-border/70 bg-background/80 p-3 sm:p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="max-w-xl">
+                        <h2 className="text-sm font-semibold">
+                          Informații medicale din conversație
+                        </h2>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          La cerere, conversația este trimisă către Google
+                          Gemini. Nimic nu se salvează în profil fără
+                          confirmarea ta.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleExtractMedicalInfo()}
+                        disabled={
+                          extractingMedicalInfo ||
+                          medicalDraftsConversationId !== activeConversation.id
+                        }
+                        className="inline-flex min-h-10 touch-manipulation items-center justify-center rounded-chat-cta border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-50"
+                      >
+                        {extractingMedicalInfo
+                          ? "Se analizează…"
+                          : "Extrage informații"}
+                      </button>
+                    </div>
+                    {medicalExtractionMessage ? (
+                      <p
+                        className="mt-3 text-sm text-muted-foreground"
+                        role="status"
+                      >
+                        {medicalExtractionMessage}
+                      </p>
+                    ) : null}
+                    {visibleMedicalDrafts.map((medicalDraft) => {
+                      const selection = medicalSelections[medicalDraft.id] ?? {
+                        allergies: [],
+                        chronicConditions: [],
+                        currentTreatments: [],
+                      };
+                      const selectedCount =
+                        selection.allergies.length +
+                        selection.chronicConditions.length +
+                        selection.currentTreatments.length;
+
+                      return (
+                        <div
+                          key={medicalDraft.id}
+                          className="mt-4 border-t border-border/70 pt-4"
+                        >
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Propunere de verificat ·{" "}
+                            {new Date(medicalDraft.createdAt).toLocaleString(
+                              "ro-RO",
+                            )}
+                          </p>
+                          <div className="mt-3 space-y-4">
+                            {MEDICAL_EXTRACTION_CATEGORIES.map((category) => {
+                              const facts =
+                                medicalDraft.proposedData[category];
+                              if (facts.length === 0) {
+                                return null;
+                              }
+                              return (
+                                <fieldset key={category} className="space-y-2">
+                                  <legend className="text-sm font-medium">
+                                    {MEDICAL_EXTRACTION_LABEL[category]}
+                                  </legend>
+                                  {facts.map((fact, index) => (
+                                    <label
+                                      key={`${category}-${index}`}
+                                      className="flex cursor-pointer gap-2 rounded-chat border border-border/60 p-2.5 text-sm"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selection[category].includes(
+                                          index,
+                                        )}
+                                        onChange={() =>
+                                          toggleMedicalFact(
+                                            medicalDraft.id,
+                                            category,
+                                            index,
+                                          )
+                                        }
+                                        aria-label={`Salvează ${MEDICAL_EXTRACTION_LABEL[category]}: ${fact.value}`}
+                                      />
+                                      <span>
+                                        <span className="block font-medium">
+                                          {fact.value}
+                                        </span>
+                                        <span className="mt-1 block text-xs text-muted-foreground">
+                                          „{fact.evidence}”
+                                        </span>
+                                      </span>
+                                    </label>
+                                  ))}
+                                </fieldset>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-3 flex flex-wrap justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void reviewMedicalDraft(medicalDraft, "reject")
+                              }
+                              disabled={reviewingMedicalDraftId != null}
+                              className="min-h-10 rounded-chat-cta px-3 text-sm text-muted-foreground hover:bg-muted disabled:opacity-50"
+                            >
+                              Respinge
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void reviewMedicalDraft(medicalDraft, "accept")
+                              }
+                              disabled={
+                                selectedCount === 0 ||
+                                reviewingMedicalDraftId != null
+                              }
+                              className="min-h-10 rounded-chat-cta bg-bubble-out px-3 text-sm font-medium text-bubble-out-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {reviewingMedicalDraftId === medicalDraft.id
+                                ? "Se salvează…"
+                                : "Salvează selecția"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </section>
+                ) : null}
                 {activeConversation.messages.length === 0 ? (
                   <div className="flex h-full min-h-48 flex-col items-center justify-center px-2 py-6 text-center">
                     <EmptyChatMark />
@@ -925,4 +1251,3 @@ function SendIcon() {
     </svg>
   );
 }
-

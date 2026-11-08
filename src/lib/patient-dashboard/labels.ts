@@ -11,6 +11,7 @@ export const EVENT_TYPE_LABEL: Record<TimelineEventType, string> = {
   analysis: "Analiză",
   vaccination: "Vaccinare",
   treatment_change: "Modificare tratament",
+  profile_update: "Profil actualizat",
 };
 
 export const TIMELINE_FILTERS: { id: TimelineFilter; label: string }[] = [
@@ -19,6 +20,7 @@ export const TIMELINE_FILTERS: { id: TimelineFilter; label: string }[] = [
   { id: "analysis", label: "Analize" },
   { id: "treatment", label: "Tratamente" },
   { id: "observation", label: "Observații" },
+  { id: "profile", label: "Profil" },
 ];
 
 export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
@@ -106,6 +108,9 @@ export function matchesTimelineFilter(
   }
   if (filter === "observation") {
     return type === "observation";
+  }
+  if (filter === "profile") {
+    return type === "profile_update";
   }
   return false;
 }
