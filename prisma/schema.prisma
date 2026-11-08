@@ -115,6 +115,27 @@ enum Currency {
   @@map("currency")
 }
 
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+
+  @@map("meal_type")
+}
+
+enum FoodGroup {
+  VEGETABLES
+  FRUITS
+  GRAINS
+  PROTEIN
+  DAIRY
+  FATS
+  SWEETS
+
+  @@map("food_group")
+}
+
 // ------------------------------------------------------
 // MODELS MVP
 // ------------------------------------------------------
@@ -131,22 +152,27 @@ model ProfileSpace {
 }
 
 model PatientProfile {
-  id                 String     @id @default(uuid()) @db.Uuid
-  profileSpaceId     String     @map("profile_space_id") @db.Uuid
-  firstName          String     @map("first_name") @db.VarChar(50)
-  lastName           String     @map("last_name") @db.VarChar(100)
-  dateOfBirth        DateTime   @map("date_of_birth") @db.Date
-  sex                PatientSex
-  preferredName      String?    @map("preferred_name") @db.VarChar(50)
-  notes              String?    @db.Text
-  allergies          String?    @db.Text
-  chronicConditions  String?    @map("chronic_conditions") @db.Text
-  currentTreatments  String?    @map("current_treatments") @db.Text
-  familyDoctor       String?    @map("family_doctor") @db.VarChar(150)
-  insurance          String?    @db.VarChar(150)
-  attendingDoctors   String[]   @default([]) @map("attending_doctors")
-  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                    String     @id @default(uuid()) @db.Uuid
+  profileSpaceId        String     @map("profile_space_id") @db.Uuid
+  firstName             String     @map("first_name") @db.VarChar(50)
+  lastName              String     @map("last_name") @db.VarChar(100)
+  dateOfBirth           DateTime   @map("date_of_birth") @db.Date
+  sex                   PatientSex
+  preferredName         String?    @map("preferred_name") @db.VarChar(50)
+  notes                 String?    @db.Text
+  allergies             String?    @db.Text
+  chronicConditions     String?    @map("chronic_conditions") @db.Text
+  currentTreatments     String?    @map("current_treatments") @db.Text
+  familyDoctor          String?    @map("family_doctor") @db.VarChar(150)
+  insurance             String?    @db.VarChar(150)
+  attendingDoctors      String[]   @default([]) @map("attending_doctors")
+  bloodType             String?    @map("blood_type") @db.VarChar(20)
+  pastSurgeries         String?    @map("past_surgeries") @db.Text
+  vaccinationStatus     String?    @map("vaccination_status") @db.Text
+  emergencyContactName  String?    @map("emergency_contact_name") @db.VarChar(100)
+  emergencyContactPhone String?    @map("emergency_contact_phone") @db.VarChar(30)
+  createdAt             DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   profileSpace ProfileSpace @relation(fields: [profileSpaceId], references: [id], onDelete: Cascade)
 
@@ -162,6 +188,8 @@ model PatientProfile {
   measurements           Measurement[]
   documents              MedicalDocument[]
   prescriptions          Prescription[]
+  nutritionEntries       NutritionEntry[]
+  hydrationLogs          HydrationLog[]
 
   @@index([profileSpaceId, lastName, firstName])
   @@index([dateOfBirth])
@@ -331,10 +359,10 @@ model Consultation {
   createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  patient       PatientProfile         @relation("ConsultationPatient", fields: [patientProfileId], references: [id], onDelete: Restrict)
-  requestedBy   PatientProfile         @relation("ConsultationRequestedBy", fields: [requestedByProfileId], references: [id], onDelete: Restrict)
-  doctor        DoctorProfile?         @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
-  triageSession TriageSession?         @relation(fields: [triageSessionId], references: [id], onDelete: SetNull)
+  patient       PatientProfile        @relation("ConsultationPatient", fields: [patientProfileId], references: [id], onDelete: Restrict)
+  requestedBy   PatientProfile        @relation("ConsultationRequestedBy", fields: [requestedByProfileId], references: [id], onDelete: Restrict)
+  doctor        DoctorProfile?        @relation(fields: [doctorProfileId], references: [id], onDelete: Restrict)
+  triageSession TriageSession?        @relation(fields: [triageSessionId], references: [id], onDelete: SetNull)
   messages      ConsultationMessage[]
 
   @@index([patientProfileId, createdAt])
@@ -344,15 +372,48 @@ model Consultation {
 }
 
 model ConsultationMessage {
-  id             String                     @id @default(uuid()) @db.Uuid
-  consultationId String                     @map("consultation_id") @db.Uuid
+  id             String                    @id @default(uuid()) @db.Uuid
+  consultationId String                    @map("consultation_id") @db.Uuid
   sender         ConsultationMessageSender
-  content        String                     @db.Text
-  delivery       MessageDeliveryStatus      @default(PENDING)
-  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  content        String                    @db.Text
+  delivery       MessageDeliveryStatus     @default(PENDING)
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
 
   @@index([consultationId, createdAt])
   @@map("consultation_messages")
+}
+
+model NutritionEntry {
+  id               String      @id @default(uuid()) @db.Uuid
+  patientProfileId String      @map("patient_profile_id") @db.Uuid
+  date             DateTime    @db.Date
+  mealType         MealType    @map("meal_type")
+  description      String      @db.VarChar(300)
+  foodGroups       FoodGroup[] @default([]) @map("food_groups")
+  hadReaction      Boolean     @default(false) @map("had_reaction")
+  reactionNotes    String?     @map("reaction_notes") @db.VarChar(500)
+  notes            String?     @db.VarChar(500)
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  patient PatientProfile @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+
+  @@index([patientProfileId, date])
+  @@map("nutrition_entries")
+}
+
+model HydrationLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  patientProfileId String   @map("patient_profile_id") @db.Uuid
+  date             DateTime @db.Date
+  amountMl         Int      @map("amount_ml")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  patient PatientProfile @relation(fields: [patientProfileId], references: [id], onDelete: Restrict)
+
+  @@unique([patientProfileId, date])
+  @@map("hydration_logs")
 }

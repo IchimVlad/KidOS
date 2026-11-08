@@ -1,13 +1,15 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ProfileAvatar } from "@/components/patient-select/avatar";
 import { DemoDialog, DialogActions } from "@/components/patient-select/dialog";
 import {
+  BLOOD_TYPES,
   RELATION_LABEL,
   SEX_LABEL,
+  bloodTypeSchema,
   patientRelationSchema,
   patientSexSchema,
   type PatientProfile,
@@ -18,6 +20,127 @@ import { sexDotClass } from "@/lib/patient-sex";
 import { cn } from "@/lib/utils";
 
 type DialogKind = "add" | "manage" | null;
+
+type MedicalDraft = {
+  lastName: string;
+  heightCm: string;
+  weightKg: string;
+  bloodType: string;
+  allergies: string;
+  chronicConditions: string;
+  currentTreatments: string;
+  pastSurgeries: string;
+  vaccinationStatus: string;
+  familyDoctor: string;
+  insurance: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  notes: string;
+};
+
+const EMPTY_MEDICAL_DRAFT: MedicalDraft = {
+  lastName: "",
+  heightCm: "",
+  weightKg: "",
+  bloodType: "",
+  allergies: "",
+  chronicConditions: "",
+  currentTreatments: "",
+  pastSurgeries: "",
+  vaccinationStatus: "",
+  familyDoctor: "",
+  insurance: "",
+  emergencyContactName: "",
+  emergencyContactPhone: "",
+  notes: "",
+};
+
+const INPUT_CLASS =
+  "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base outline-none transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-ring";
+
+/** „12,5” sau „12.5” → 12.5; gol sau invalid → undefined. */
+function parseDecimal(value: string): number | undefined {
+  const normalized = value.trim().replace(",", ".");
+  if (normalized.length === 0) {
+    return undefined;
+  }
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function FormSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3 border-t border-border pt-4">
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+        {hint ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  maxLength,
+  multiline = false,
+  placeholder,
+  type = "text",
+  inputMode,
+  autoComplete = "off",
+  invalid = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  maxLength: number;
+  multiline?: boolean;
+  placeholder?: string;
+  type?: "text" | "tel";
+  inputMode?: "decimal" | "tel" | "text";
+  autoComplete?: string;
+  invalid?: boolean;
+}) {
+  return (
+    <label className="block space-y-2 text-sm">
+      <span className="font-medium">{label}</span>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          rows={2}
+          className={cn(INPUT_CLASS, "resize-y")}
+        />
+      ) : (
+        <input
+          type={type}
+          inputMode={inputMode}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          aria-invalid={invalid}
+          className={cn(INPUT_CLASS, invalid && "border-destructive")}
+        />
+      )}
+    </label>
+  );
+}
 
 export function PatientSelectPage({
   initialProfiles,
@@ -38,6 +161,26 @@ export function PatientSelectPage({
     useState<PatientRelation>("child");
   const [draftSex, setDraftSex] = useState<PatientSex>("female");
   const [draftDateOfBirth, setDraftDateOfBirth] = useState("");
+  const [medical, setMedical] = useState<MedicalDraft>(EMPTY_MEDICAL_DRAFT);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  function setMedicalField(field: keyof MedicalDraft) {
+    return (value: string) =>
+      setMedical((current) => ({ ...current, [field]: value }));
+  }
+
+  const heightCm = parseDecimal(medical.heightCm);
+  const weightKg = parseDecimal(medical.weightKg);
+  const heightInvalid =
+    medical.heightCm.trim().length > 0 &&
+    (heightCm == null || heightCm < 20 || heightCm > 250);
+  const weightInvalid =
+    medical.weightKg.trim().length > 0 &&
+    (weightKg == null || weightKg < 0.5 || weightKg > 400);
+  const phoneInvalid = !/^[+0-9 ()./-]*$/.test(
+    medical.emergencyContactPhone.trim(),
+  );
+  const medicalInvalid = heightInvalid || weightInvalid || phoneInvalid;
 
   const today = new Date();
   const maxDateOfBirth = new Date(
@@ -54,6 +197,8 @@ export function PatientSelectPage({
     setDraftRelation("child");
     setDraftSex("female");
     setDraftDateOfBirth("");
+    setMedical(EMPTY_MEDICAL_DRAFT);
+    setAddError(null);
   }
 
   function cancelProfileDeletion() {
@@ -64,10 +209,18 @@ export function PatientSelectPage({
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const firstName = draftName.trim();
-    if (firstName.length === 0 || draftDateOfBirth.length === 0 || pending) {
+    if (
+      firstName.length === 0 ||
+      draftDateOfBirth.length === 0 ||
+      medicalInvalid ||
+      pending
+    ) {
       return;
     }
 
+    const bloodType = bloodTypeSchema.safeParse(medical.bloodType);
+
+    setAddError(null);
     setPending(true);
     try {
       const response = await fetch("/api/profiles", {
@@ -78,10 +231,24 @@ export function PatientSelectPage({
           relation: draftRelation,
           sex: draftSex,
           dateOfBirth: draftDateOfBirth,
+          lastName: medical.lastName,
+          heightCm,
+          weightKg,
+          bloodType: bloodType.success ? bloodType.data : undefined,
+          allergies: medical.allergies,
+          chronicConditions: medical.chronicConditions,
+          currentTreatments: medical.currentTreatments,
+          pastSurgeries: medical.pastSurgeries,
+          vaccinationStatus: medical.vaccinationStatus,
+          familyDoctor: medical.familyDoctor,
+          insurance: medical.insurance,
+          emergencyContactName: medical.emergencyContactName,
+          emergencyContactPhone: medical.emergencyContactPhone,
+          notes: medical.notes,
         }),
       });
       if (!response.ok) {
-        setNotice("Profilul nu a putut fi adăugat.");
+        setAddError("Profilul nu a putut fi adăugat. Verifică datele introduse.");
         return;
       }
       const payload = (await response.json()) as { profile: PatientProfile };
@@ -90,7 +257,9 @@ export function PatientSelectPage({
       closeDialog();
       router.refresh();
     } catch {
-      setNotice("Profilul nu a putut fi adăugat.");
+      setAddError(
+        "Profilul nu a putut fi adăugat. Verifică conexiunea și încearcă din nou.",
+      );
     } finally {
       setPending(false);
     }
@@ -231,8 +400,9 @@ export function PatientSelectPage({
       <DemoDialog
         open={dialog === "add"}
         title="Adaugă o persoană"
-        description="Profilul este salvat în baza de date a spațiului familiei."
+        description="Doar prenumele, data nașterii și sexul sunt obligatorii. Restul detaliilor îl ajută pe medic și sunt salvate în profil."
         onClose={closeDialog}
+        size="md"
       >
         <form id={addFormId} className="space-y-4" onSubmit={handleAdd}>
           <label className="block space-y-2 text-sm">
@@ -244,9 +414,16 @@ export function PatientSelectPage({
               autoComplete="off"
               maxLength={40}
               required
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base outline-none transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-ring"
+              className={INPUT_CLASS}
             />
           </label>
+
+          <TextField
+            label="Nume de familie (opțional)"
+            value={medical.lastName}
+            onChange={setMedicalField("lastName")}
+            maxLength={100}
+          />
 
           <label className="block space-y-2 text-sm">
             <span className="font-medium">Data nașterii</span>
@@ -321,13 +498,163 @@ export function PatientSelectPage({
             </div>
           </fieldset>
 
+          <FormSection
+            title="Măsurători"
+            hint="Se salvează ca măsurători declarate, cu data de azi."
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="Înălțime (cm)"
+                inputMode="decimal"
+                value={medical.heightCm}
+                onChange={setMedicalField("heightCm")}
+                placeholder="ex. 120"
+                maxLength={6}
+                invalid={heightInvalid}
+              />
+              <TextField
+                label="Greutate (kg)"
+                inputMode="decimal"
+                value={medical.weightKg}
+                onChange={setMedicalField("weightKg")}
+                placeholder="ex. 24,5"
+                maxLength={6}
+                invalid={weightInvalid}
+              />
+            </div>
+            {heightInvalid || weightInvalid ? (
+              <p className="text-xs text-destructive">
+                Înălțimea trebuie să fie între 20 și 250 cm, iar greutatea între
+                0,5 și 400 kg.
+              </p>
+            ) : null}
+            <label className="block space-y-2 text-sm">
+              <span className="font-medium">Grupa sanguină</span>
+              <select
+                value={medical.bloodType}
+                onChange={(event) =>
+                  setMedicalField("bloodType")(event.target.value)
+                }
+                className={INPUT_CLASS}
+              >
+                <option value="">Nu știu / nespecificat</option>
+                {BLOOD_TYPES.map((bloodType) => (
+                  <option key={bloodType} value={bloodType}>
+                    {bloodType}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </FormSection>
+
+          <FormSection title="Istoric medical">
+            <TextField
+              label="Alergii"
+              value={medical.allergies}
+              onChange={setMedicalField("allergies")}
+              maxLength={2000}
+              multiline
+              placeholder="Medicamente, alimente, polen, înțepături…"
+            />
+            <TextField
+              label="Afecțiuni cronice"
+              value={medical.chronicConditions}
+              onChange={setMedicalField("chronicConditions")}
+              maxLength={2000}
+              multiline
+              placeholder="ex. astm, diabet, epilepsie"
+            />
+            <TextField
+              label="Tratamente și medicamente curente"
+              value={medical.currentTreatments}
+              onChange={setMedicalField("currentTreatments")}
+              maxLength={2000}
+              multiline
+              placeholder="Denumire, doză, frecvență"
+            />
+            <TextField
+              label="Operații și internări anterioare"
+              value={medical.pastSurgeries}
+              onChange={setMedicalField("pastSurgeries")}
+              maxLength={2000}
+              multiline
+            />
+            <TextField
+              label="Vaccinări"
+              value={medical.vaccinationStatus}
+              onChange={setMedicalField("vaccinationStatus")}
+              maxLength={2000}
+              multiline
+              placeholder="ex. schema la zi, ultimul vaccin primit"
+            />
+          </FormSection>
+
+          <FormSection title="Medic și asigurare">
+            <TextField
+              label="Medic de familie"
+              value={medical.familyDoctor}
+              onChange={setMedicalField("familyDoctor")}
+              maxLength={150}
+            />
+            <TextField
+              label="Asigurare medicală"
+              value={medical.insurance}
+              onChange={setMedicalField("insurance")}
+              maxLength={150}
+              placeholder="ex. CNAS, asigurare privată"
+            />
+          </FormSection>
+
+          <FormSection title="Contact de urgență">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TextField
+                label="Nume"
+                value={medical.emergencyContactName}
+                onChange={setMedicalField("emergencyContactName")}
+                maxLength={100}
+              />
+              <TextField
+                label="Telefon"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={medical.emergencyContactPhone}
+                onChange={setMedicalField("emergencyContactPhone")}
+                maxLength={30}
+                invalid={phoneInvalid}
+              />
+            </div>
+            {phoneInvalid ? (
+              <p className="text-xs text-destructive">
+                Telefonul poate conține doar cifre, spații și + ( ) - . /
+              </p>
+            ) : null}
+          </FormSection>
+
+          <FormSection title="Alte observații">
+            <TextField
+              label="Note pentru medic"
+              value={medical.notes}
+              onChange={setMedicalField("notes")}
+              maxLength={2000}
+              multiline
+            />
+          </FormSection>
+
+          {addError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {addError}
+            </p>
+          ) : null}
+
           <DialogActions
             formId={addFormId}
             onCancel={closeDialog}
-            confirmLabel="Adaugă"
+            confirmLabel={pending ? "Se salvează..." : "Adaugă"}
             disabled={
               draftName.trim().length === 0 ||
               draftDateOfBirth.length === 0 ||
+              medicalInvalid ||
               pending
             }
           />

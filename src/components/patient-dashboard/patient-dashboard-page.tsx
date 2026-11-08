@@ -193,6 +193,18 @@ export function PatientDashboardPage({
                 aria-hidden="true"
               />
               <Link
+                href={`/pacient/${dashboard.person.id}/istoric-familial${queryString ? `?${queryString}` : ""}`}
+                className="inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
+              >
+                Istoric familial
+              </Link>
+              <Link
+                href={`/pacient/${dashboard.person.id}/nutritie`}
+                className="inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
+              >
+                Nutriție
+              </Link>
+              <Link
                 href="/"
                 className="truncate text-sm font-medium text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
