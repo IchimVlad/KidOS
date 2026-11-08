@@ -10,6 +10,7 @@ export function DemoDialog({
   onClose,
   children,
   size = "sm",
+  centered = false,
 }: {
   open: boolean;
   title: string;
@@ -17,6 +18,7 @@ export function DemoDialog({
   onClose: () => void;
   children: ReactNode;
   size?: "sm" | "md" | "lg";
+  centered?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -55,15 +57,21 @@ export function DemoDialog({
         }
       }}
     >
-      <div className="flex flex-col gap-5 p-6">
-        <div className="space-y-2">
-          <h2 id={titleId} className="text-lg font-semibold tracking-tight">
+      <div className="flex flex-col gap-4 p-5 sm:p-6">
+        <div className={cn("space-y-2", centered && "text-center")}>
+          <h2
+            id={titleId}
+            className="text-balance text-lg font-semibold tracking-tight sm:text-xl"
+          >
             {title}
           </h2>
           {description ? (
             <p
               id={descriptionId}
-              className="text-sm leading-relaxed text-muted-foreground"
+              className={cn(
+                "text-sm leading-relaxed text-muted-foreground",
+                centered && "mx-auto max-w-md",
+              )}
             >
               {description}
             </p>

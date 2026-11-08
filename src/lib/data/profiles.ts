@@ -42,7 +42,7 @@ export async function createProfileInSpace(input: {
   lastName?: string;
   relation: PatientRelation;
   sex: PatientSex;
-  dateOfBirth?: Date;
+  dateOfBirth: Date;
   spaceId?: string;
   managerProfileId?: string;
 }): Promise<PatientProfile> {
@@ -50,13 +50,6 @@ export async function createProfileInSpace(input: {
   const spaceId = input.spaceId ?? DEFAULT_PROFILE_SPACE_ID;
   const firstName = input.firstName.trim();
   const lastName = (input.lastName ?? "Popescu").trim() || "Popescu";
-  const dateOfBirth =
-    input.dateOfBirth ??
-    (input.relation === "child"
-      ? new Date("2018-01-01T00:00:00.000Z")
-      : input.relation === "elder"
-        ? new Date("1950-01-01T00:00:00.000Z")
-        : new Date("1990-01-01T00:00:00.000Z"));
 
   const managerId =
     input.managerProfileId ??
@@ -75,7 +68,7 @@ export async function createProfileInSpace(input: {
       profileSpaceId: spaceId,
       firstName,
       lastName,
-      dateOfBirth,
+      dateOfBirth: input.dateOfBirth,
       sex: mapSexToDb(input.sex),
       preferredName: firstName,
     },
