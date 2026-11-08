@@ -45,6 +45,10 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    --color-sex-female: var(--sex-female);
+    --color-sex-female-soft: var(--sex-female-soft);
+    --color-sex-male: var(--sex-male);
+    --color-sex-male-soft: var(--sex-male-soft);
 }
 
 :root {
@@ -80,6 +84,10 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    --sex-female: oklch(0.72 0.12 10);
+    --sex-female-soft: oklch(0.96 0.03 10);
+    --sex-male: oklch(0.62 0.1 250);
+    --sex-male-soft: oklch(0.95 0.03 250);
 }
 
 .dark {

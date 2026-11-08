@@ -22,6 +22,10 @@ pnpm install
 - `pnpm typecheck` — verificarea TypeScript
 - `pnpm test` — Vitest, o singură rulare, fără watch
 
+## Lakebase Postgres
+
+Baza de date este pe Neon, branch-ul `production`. `neon env pull` scrie `DATABASE_URL` (conexiune pooled) în `.env.local`. Interogările pleacă din server, prin `src/lib/db.ts`, cu driverul `pg`. Verificarea conexiunii este `GET /api/db`.
+
 ## localStorage
 
 Persistența temporară este în browser, prin `src/lib/storage.ts`. Valorile sunt JSON, cheile primesc prefixul `KidOS.`, iar datele citite se validează cu Zod.
