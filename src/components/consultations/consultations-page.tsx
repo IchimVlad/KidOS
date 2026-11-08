@@ -11,6 +11,10 @@ import {
 } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import {
+  DemoDialog,
+  DialogActions,
+} from "@/components/patient-select/dialog";
 import { ProfileAvatar } from "@/components/patient-select/avatar";
 import {
   formatChatDay,
@@ -20,6 +24,8 @@ import {
 import {
   appendMessage,
   createConversation,
+  deleteConversation,
+  getEmptyConversationsSnapshot,
   listConversationsForPatient,
   subscribeConsultations,
 } from "@/lib/consultations/store";
@@ -66,6 +72,7 @@ export function ConsultationsPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [mobileShowChat, setMobileShowChat] = useState(
     () => searchParams.get("chat") != null,
   );
@@ -90,7 +97,7 @@ export function ConsultationsPage() {
   const conversations = useSyncExternalStore(
     subscribeConsultations,
     () => listConversationsForPatient(patientId),
-    () => [],
+    getEmptyConversationsSnapshot,
   );
 
   const chatFromUrl = searchParams.get("chat");
@@ -131,6 +138,44 @@ export function ConsultationsPage() {
     openConversation(created.id);
     setDraft("");
     inputRef.current?.focus();
+  }
+
+  function clearActiveChatFromUrl() {
+    const query = new URLSearchParams(searchParams.toString());
+    query.delete("chat");
+    query.delete("nou");
+    const value = query.toString();
+    router.replace(
+      value.length > 0
+        ? `/pacient/${patientId}/consultatii?${value}`
+        : `/pacient/${patientId}/consultatii`,
+    );
+    setMobileShowChat(false);
+    setDraft("");
+  }
+
+  function handleConfirmDelete() {
+    if (pendingDeleteId == null) {
+      return;
+    }
+
+    const deletedId = pendingDeleteId;
+    const wasActive = deletedId === activeId;
+    deleteConversation(deletedId);
+    setPendingDeleteId(null);
+
+    if (!wasActive) {
+      return;
+    }
+
+    const remaining = listConversationsForPatient(patientId);
+    if (remaining[0]) {
+      openConversation(remaining[0].id);
+      setDraft("");
+      return;
+    }
+
+    clearActiveChatFromUrl();
   }
 
   function handleSend(event: FormEvent<HTMLFormElement>) {
@@ -208,15 +253,17 @@ export function ConsultationsPage() {
               </li>
             ) : (
               conversations.map((conversation) => (
-                <li key={conversation.id}>
+                <li
+                  key={conversation.id}
+                  className={cn(
+                    "group flex items-stretch border-b border-border/70",
+                    activeId === conversation.id && "bg-muted/80",
+                  )}
+                >
                   <button
                     type="button"
                     onClick={() => openConversation(conversation.id)}
-                    className={cn(
-                      "flex w-full items-start gap-3 border-b border-border/70 px-4 py-3 text-left transition-colors duration-150",
-                      "hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                      activeId === conversation.id && "bg-muted/80",
-                    )}
+                    className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   >
                     <ProfileAvatar
                       label={patient.firstName}
@@ -245,6 +292,14 @@ export function ConsultationsPage() {
                           : "Fără mesaje"}
                       </span>
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteId(conversation.id)}
+                    className="shrink-0 self-center px-3 py-2 text-xs font-medium text-muted-foreground opacity-100 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                    aria-label={`Șterge ${conversation.title}`}
+                  >
+                    Șterge
                   </button>
                 </li>
               ))
@@ -276,6 +331,13 @@ export function ConsultationsPage() {
                     <StatusPill status={activeConversation.status} />
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteId(activeConversation.id)}
+                  className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  Șterge
+                </button>
               </div>
 
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6">
@@ -362,6 +424,19 @@ export function ConsultationsPage() {
           )}
         </section>
       </div>
+
+      <DemoDialog
+        open={pendingDeleteId != null}
+        title="Ștergi conversația?"
+        description="Mesajele vor fi eliminate de pe acest dispozitiv. Acțiunea nu poate fi anulată."
+        onClose={() => setPendingDeleteId(null)}
+      >
+        <DialogActions
+          onCancel={() => setPendingDeleteId(null)}
+          onConfirm={handleConfirmDelete}
+          confirmLabel="Șterge"
+        />
+      </DemoDialog>
     </div>
   );
 }

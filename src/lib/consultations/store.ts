@@ -9,8 +9,15 @@ import {
 import { readStorage, writeStorage } from "@/lib/storage";
 
 const listeners = new Set<() => void>();
+const EMPTY_CONVERSATIONS: Conversation[] = [];
+const conversationListCache = new Map<string, Conversation[]>();
+
+function clearConversationListCache() {
+  conversationListCache.clear();
+}
 
 function emit() {
+  clearConversationListCache();
   for (const listener of listeners) {
     listener();
   }
@@ -28,6 +35,7 @@ export function subscribeConsultations(listener: () => void) {
       event.key === null ||
       event.key === `KidOS.${CONSULTATIONS_STORAGE_KEY}`
     ) {
+      clearConversationListCache();
       listener();
     }
   };
@@ -37,6 +45,10 @@ export function subscribeConsultations(listener: () => void) {
     listeners.delete(listener);
     window.removeEventListener("storage", onStorage);
   };
+}
+
+export function getEmptyConversationsSnapshot(): Conversation[] {
+  return EMPTY_CONVERSATIONS;
 }
 
 export function getConsultationsStore(): ConsultationsStore {
@@ -53,10 +65,19 @@ function saveStore(store: ConsultationsStore) {
 }
 
 export function listConversationsForPatient(patientId: string): Conversation[] {
-  return getConsultationsStore()
+  const cached = conversationListCache.get(patientId);
+  if (cached) {
+    return cached;
+  }
+
+  const list = getConsultationsStore()
     .conversations.filter((conversation) => conversation.patientId === patientId)
     .slice()
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+  const snapshot = list.length === 0 ? EMPTY_CONVERSATIONS : list;
+  conversationListCache.set(patientId, snapshot);
+  return snapshot;
 }
 
 export function getConversation(conversationId: string): Conversation | null {
@@ -153,6 +174,20 @@ export function setConversationStatus(
   conversations[index] = updated;
   saveStore({ conversations });
   return updated;
+}
+
+export function deleteConversation(conversationId: string): boolean {
+  const store = getConsultationsStore();
+  const next = store.conversations.filter(
+    (conversation) => conversation.id !== conversationId,
+  );
+
+  if (next.length === store.conversations.length) {
+    return false;
+  }
+
+  saveStore({ conversations: next });
+  return true;
 }
 
 function formatShortTime(iso: string): string {
