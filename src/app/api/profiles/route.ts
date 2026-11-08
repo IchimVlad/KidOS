@@ -5,10 +5,20 @@ import {
   deleteProfile,
   listProfilesForSpace,
 } from "@/lib/data/profiles";
-import { patientRelationSchema, patientSexSchema } from "@/lib/patient-select";
+import {
+  patientRelationSchema,
+  patientSexSchema,
+  profileMedicalDetailsSchema,
+} from "@/lib/patient-select";
 
-const createProfileSchema = z.object({
+const createProfileSchema = profileMedicalDetailsSchema.extend({
   firstName: z.string().trim().min(1).max(40),
+  lastName: z
+    .string()
+    .trim()
+    .max(100)
+    .optional()
+    .transform((value) => (value ? value : undefined)),
   relation: patientRelationSchema,
   sex: patientSexSchema,
   dateOfBirth: z
