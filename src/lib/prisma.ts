@@ -2,7 +2,7 @@ import "server-only";
 
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { neonConfig } from "@neondatabase/serverless";
-import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
