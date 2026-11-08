@@ -30,22 +30,41 @@ export function PatientSelectPage({
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [dialog, setDialog] = useState<DialogKind>(null);
+  const [profileToDelete, setProfileToDelete] =
+    useState<PatientProfile | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
   const [draftRelation, setDraftRelation] =
     useState<PatientRelation>("child");
   const [draftSex, setDraftSex] = useState<PatientSex>("female");
+  const [draftDateOfBirth, setDraftDateOfBirth] = useState("");
+
+  const today = new Date();
+  const maxDateOfBirth = new Date(
+    today.getTime() - today.getTimezoneOffset() * 60_000,
+  )
+    .toISOString()
+    .slice(0, 10);
 
   function closeDialog() {
     setDialog(null);
+    setProfileToDelete(null);
+    setDeleteError(null);
     setDraftName("");
     setDraftRelation("child");
     setDraftSex("female");
+    setDraftDateOfBirth("");
+  }
+
+  function cancelProfileDeletion() {
+    setProfileToDelete(null);
+    setDeleteError(null);
   }
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const firstName = draftName.trim();
-    if (firstName.length === 0 || pending) {
+    if (firstName.length === 0 || draftDateOfBirth.length === 0 || pending) {
       return;
     }
 
@@ -58,6 +77,7 @@ export function PatientSelectPage({
           firstName,
           relation: draftRelation,
           sex: draftSex,
+          dateOfBirth: draftDateOfBirth,
         }),
       });
       if (!response.ok) {
@@ -76,28 +96,30 @@ export function PatientSelectPage({
     }
   }
 
-  async function removeProfile(profileId: string) {
-    if (pending) {
+  async function removeProfile() {
+    if (pending || !profileToDelete) {
       return;
     }
+    setDeleteError(null);
     setPending(true);
     try {
       const response = await fetch("/api/profiles", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: profileId }),
+        body: JSON.stringify({ id: profileToDelete.id }),
       });
       if (!response.ok) {
-        setNotice("Profilul nu a putut fi eliminat.");
+        setDeleteError("Profilul nu a putut fi eliminat. Încearcă din nou.");
         return;
       }
       setProfiles((current) =>
-        current.filter((profile) => profile.id !== profileId),
+        current.filter((profile) => profile.id !== profileToDelete.id),
       );
-      setNotice("Profilul a fost eliminat.");
+      setProfileToDelete(null);
+      setDialog("manage");
       router.refresh();
     } catch {
-      setNotice("Profilul nu a putut fi eliminat.");
+      setDeleteError("Profilul nu a putut fi eliminat. Verifică conexiunea și încearcă din nou.");
     } finally {
       setPending(false);
     }
@@ -218,6 +240,22 @@ export function PatientSelectPage({
             />
           </label>
 
+          <label className="block space-y-2 text-sm">
+            <span className="font-medium">Data nașterii</span>
+            <input
+              type="date"
+              value={draftDateOfBirth}
+              onChange={(event) => setDraftDateOfBirth(event.target.value)}
+              name="dateOfBirth"
+              max={maxDateOfBirth}
+              required
+              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base outline-none transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <span className="block text-xs leading-relaxed text-muted-foreground">
+              Vârsta profilului va fi calculată automat din această dată.
+            </span>
+          </label>
+
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">Pentru cine</legend>
             <div className="grid gap-2">
@@ -279,52 +317,129 @@ export function PatientSelectPage({
             formId={addFormId}
             onCancel={closeDialog}
             confirmLabel="Adaugă"
-            disabled={draftName.trim().length === 0 || pending}
+            disabled={
+              draftName.trim().length === 0 ||
+              draftDateOfBirth.length === 0 ||
+              pending
+            }
           />
         </form>
       </DemoDialog>
 
       <DemoDialog
         open={dialog === "manage"}
-        title="Gestionează profilurile"
-        description="Eliminarea șterge profilul și datele medicale asociate din baza de date."
+        size={profileToDelete ? "md" : "sm"}
+        centered={Boolean(profileToDelete)}
+        title={
+          profileToDelete
+            ? "Confirmi ștergerea profilului?"
+            : "Gestionează profilurile"
+        }
+        description={
+          profileToDelete
+            ? `Profilul ${profileToDelete.firstName} și toate informațiile asociate vor fi șterse definitiv.`
+            : "Eliminarea șterge profilul și datele medicale asociate din baza de date."
+        }
         onClose={closeDialog}
       >
-        <ul className="divide-y divide-border rounded-2xl border border-border">
-          {profiles.map((profile) => (
-            <li
-              key={profile.id}
-              className="flex items-center justify-between gap-3 px-4 py-3"
-            >
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 truncate font-medium">
-                  <span className={sexDotClass(profile.sex)} aria-hidden="true" />
-                  {profile.firstName}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {RELATION_LABEL[profile.relation]} · {SEX_LABEL[profile.sex]}
-                </p>
+        {profileToDelete ? (
+          <>
+            <div className="space-y-4 text-center">
+              <div
+                className="mx-auto flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive"
+                aria-hidden="true"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="size-7"
+                >
+                  <path d="M12 9v4" />
+                  <path d="M12 17h.01" />
+                  <path d="M10.3 3.9 2.5 17.4A1.8 1.8 0 0 0 4 20h16a1.8 1.8 0 0 0 1.5-2.6L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                </svg>
               </div>
+              <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
+                Se vor șterge definitiv datele medicale, istoricul,
+                măsurătorile, documentele, rețetele, consultațiile și
+                conversațiile acestui profil. Acțiunea nu poate fi anulată.
+              </p>
+            </div>
+            {deleteError ? (
+              <p role="alert" className="text-center text-sm text-destructive">
+                {deleteError}
+              </p>
+            ) : null}
+            <div className="grid gap-3 pt-1 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => removeProfile(profile.id)}
+                onClick={cancelProfileDeletion}
                 disabled={pending}
-                className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+                className="rounded-xl border border-border px-4 py-3 text-sm font-semibold text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Elimină
+                Păstrează profilul
               </button>
-            </li>
-          ))}
-        </ul>
-        <div className="flex justify-end pt-1">
-          <button
-            type="button"
-            onClick={closeDialog}
-            className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            Gata
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={removeProfile}
+                disabled={pending || !profileToDelete}
+                className="rounded-xl bg-destructive px-4 py-3 text-sm font-semibold text-white transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {pending ? "Se șterge..." : "Da, șterge definitiv"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <ul className="divide-y divide-border rounded-2xl border border-border">
+              {profiles.map((profile) => (
+                <li
+                  key={profile.id}
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-2 truncate font-medium">
+                      <span
+                        className={sexDotClass(profile.sex)}
+                        aria-hidden="true"
+                      />
+                      {profile.firstName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {RELATION_LABEL[profile.relation]} ·{" "}
+                      {SEX_LABEL[profile.sex]}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotice(null);
+                      setDeleteError(null);
+                      setProfileToDelete(profile);
+                    }}
+                    disabled={pending}
+                    className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+                  >
+                    Elimină
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={closeDialog}
+                className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                Gata
+              </button>
+            </div>
+          </>
+        )}
       </DemoDialog>
     </div>
   );

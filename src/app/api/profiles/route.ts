@@ -11,6 +11,17 @@ const createProfileSchema = z.object({
   firstName: z.string().trim().min(1).max(40),
   relation: patientRelationSchema,
   sex: patientSexSchema,
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data nașterii nu este validă.")
+    .refine((value) => {
+      const date = new Date(`${value}T00:00:00.000Z`);
+      return (
+        !Number.isNaN(date.getTime()) &&
+        date.toISOString().slice(0, 10) === value &&
+        date <= new Date()
+      );
+    }, "Data nașterii nu poate fi în viitor."),
 });
 
 const deleteProfileSchema = z.object({
@@ -30,7 +41,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Date invalide." }, { status: 400 });
   }
 
-  const profile = await createProfileInSpace(body.data);
+  const profile = await createProfileInSpace({
+    ...body.data,
+    dateOfBirth: new Date(`${body.data.dateOfBirth}T00:00:00.000Z`),
+  });
   return Response.json({ profile }, { status: 201 });
 }
 
