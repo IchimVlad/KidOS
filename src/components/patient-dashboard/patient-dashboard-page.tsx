@@ -178,29 +178,29 @@ export function PatientDashboardPage({
                 className="hidden h-4 w-px shrink-0 bg-border sm:block"
                 aria-hidden="true"
               />
-              <Link
-                href="/"
-                className="truncate text-sm font-medium text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                Schimbă persoana
-              </Link>
-            </div>
-
-            <div className="hidden shrink-0 items-center gap-2 sm:flex sm:gap-3">
-              <SecondaryButton
-                onClick={() => setPanel({ kind: "ask" })}
-                className="px-4 py-2 text-sm"
-              >
-                Întreabă KidOS
-              </SecondaryButton>
-              <PrimaryButton
-                disabled={requestingConsult}
-                onClick={() => void requestConsultation()}
-                className="px-5 py-2 text-sm"
-              >
-                Solicită consultație
-              </PrimaryButton>
-            </div>
+              <span className="text-sm font-semibold tracking-tight text-foreground">
+                Kidos
+              </span>
+            </Link>
+            <div className="hidden h-4 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
+            <Link
+              href={`/pacient/${dashboard.person.id}/istoric-familial${queryString ? `?${queryString}` : ""}`}
+              className="inline-flex items-center justify-center rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
+            >
+              Istoric familial
+            </Link>
+            <Link
+              href={`/pacient/${dashboard.person.id}/nutritie`}
+              className="inline-flex items-center justify-center rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
+            >
+              Nutriție
+            </Link>
+            <Link
+              href="/"
+              className="truncate text-sm font-medium text-muted-foreground underline-offset-4 transition-colors duration-150 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              Schimbă persoana
+            </Link>
           </div>
 
           <div className="mt-3 flex flex-col gap-2 sm:hidden">

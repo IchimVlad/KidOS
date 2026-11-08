@@ -45,6 +45,12 @@ const dateDaysAgo = (days) => {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 };
 
+/** Zi calendaristică locală de acum `days` zile, ca valoare pentru o coloană `@db.Date`. */
+const localDateDaysAgo = (days) => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - days));
+};
+
 async function upsertById(delegate, record) {
   const { id, ...data } = record;
   await delegate.upsert({ where: { id }, create: record, update: data });
@@ -472,6 +478,106 @@ async function seed() {
     delivery: "SENT",
     createdAt: daysAgo(1),
   });
+
+  // Nutriție: intrări demo pentru Maria și Vlad (seria ...0000000002xx, după relațiile 201–202).
+  const nutritionEntries = [
+    {
+      id: "00000000-0000-4000-8000-000000000211",
+      patientProfileId: MARIA_ID,
+      date: localDateDaysAgo(0),
+      mealType: "BREAKFAST",
+      description: "Iaurt cu ovăz și banană",
+      foodGroups: ["DAIRY", "GRAINS", "FRUITS"],
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000212",
+      patientProfileId: MARIA_ID,
+      date: localDateDaysAgo(0),
+      mealType: "LUNCH",
+      description: "Supă de legume, piept de pui la cuptor și orez",
+      foodGroups: ["VEGETABLES", "PROTEIN", "GRAINS"],
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000213",
+      patientProfileId: MARIA_ID,
+      date: localDateDaysAgo(1),
+      mealType: "SNACK",
+      description: "Biscuiți cu unt de arahide",
+      foodGroups: ["GRAINS", "FATS", "SWEETS"],
+      hadReaction: true,
+      reactionNotes: "Mâncărime în jurul gurii la aproximativ 15 minute după gustare; a trecut în aproximativ o oră.",
+      notes: "Prima dată când a mâncat unt de arahide.",
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000214",
+      patientProfileId: MARIA_ID,
+      date: localDateDaysAgo(1),
+      mealType: "DINNER",
+      description: "Mămăligă cu brânză și smântână",
+      foodGroups: ["GRAINS", "DAIRY"],
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000215",
+      patientProfileId: MARIA_ID,
+      date: localDateDaysAgo(2),
+      mealType: "LUNCH",
+      description: "Tocăniță de legume cu mărar și pâine",
+      foodGroups: ["VEGETABLES", "GRAINS"],
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000216",
+      patientProfileId: VLAD_ID,
+      date: localDateDaysAgo(0),
+      mealType: "BREAKFAST",
+      description: "Omletă cu legume și o felie de pâine integrală",
+      foodGroups: ["PROTEIN", "VEGETABLES", "GRAINS"],
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000217",
+      patientProfileId: VLAD_ID,
+      date: localDateDaysAgo(1),
+      mealType: "LUNCH",
+      description: "Ciorbă de perișoare și salată de varză",
+      foodGroups: ["PROTEIN", "VEGETABLES"],
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000218",
+      patientProfileId: VLAD_ID,
+      date: localDateDaysAgo(1),
+      mealType: "SNACK",
+      description: "Măr și o mână de nuci",
+      foodGroups: ["FRUITS", "FATS"],
+    },
+  ];
+  for (const entry of nutritionEntries) {
+    await upsertById(prisma.nutritionEntry, {
+      hadReaction: false,
+      reactionNotes: null,
+      notes: null,
+      ...entry,
+    });
+  }
+
+  const hydrationLogs = [
+    { id: "00000000-0000-4000-8000-000000000221", patientProfileId: MARIA_ID, days: 0, amountMl: 750 },
+    { id: "00000000-0000-4000-8000-000000000222", patientProfileId: MARIA_ID, days: 1, amountMl: 1250 },
+    { id: "00000000-0000-4000-8000-000000000223", patientProfileId: MARIA_ID, days: 2, amountMl: 1500 },
+    { id: "00000000-0000-4000-8000-000000000224", patientProfileId: VLAD_ID, days: 0, amountMl: 1000 },
+    { id: "00000000-0000-4000-8000-000000000225", patientProfileId: VLAD_ID, days: 1, amountMl: 1750 },
+  ];
+  for (const { id, patientProfileId, days, amountMl } of hydrationLogs) {
+    const date = localDateDaysAgo(days);
+    // Unicitatea e pe (profil, zi). Dacă utilizatorul a înregistrat deja apa pentru acea zi,
+    // păstrăm rândul lui și nu suprascriem datele existente.
+    const existing = await prisma.hydrationLog.findUnique({
+      where: { patientProfileId_date: { patientProfileId, date } },
+      select: { id: true },
+    });
+    if (existing && existing.id !== id) {
+      continue;
+    }
+    await upsertById(prisma.hydrationLog, { id, patientProfileId, date, amountMl });
+  }
 }
 
 try {
