@@ -128,17 +128,25 @@ export function PatientSelectPage({
   return (
     <div className="relative flex min-h-dvh flex-col overflow-y-auto bg-background text-foreground">
       <header className="px-6 pt-8 sm:px-10 sm:pt-10">
-        <div className="flex items-center gap-2">
-          <img
-            src="/kidos-logo.png"
-            alt=""
-            width={28}
-            height={28}
-            className="size-7"
-          />
-          <p className="text-sm font-semibold tracking-tight text-foreground">
-            Kidos
-          </p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <img
+              src="/kidos-logo.png"
+              alt=""
+              width={28}
+              height={28}
+              className="size-7"
+            />
+            <p className="text-sm font-semibold tracking-tight text-foreground">
+              KidOS
+            </p>
+          </div>
+          <Link
+            href="/medic"
+            className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Intră ca medic
+          </Link>
         </div>
       </header>
 

@@ -49,6 +49,23 @@
     --color-sex-female-soft: var(--sex-female-soft);
     --color-sex-male: var(--sex-male);
     --color-sex-male-soft: var(--sex-male-soft);
+    --color-chat-bg: var(--chat-bg);
+    --color-chat-bg-deep: var(--chat-bg-deep);
+    --color-bubble-out: var(--bubble-out);
+    --color-bubble-out-foreground: var(--bubble-out-foreground);
+    --color-bubble-in: var(--bubble-in);
+    --color-bubble-in-foreground: var(--bubble-in-foreground);
+    --color-status-wait: var(--status-wait);
+    --color-status-wait-soft: var(--status-wait-soft);
+    --color-status-wait-foreground: var(--status-wait-foreground);
+    --color-status-live: var(--status-live);
+    --color-status-live-soft: var(--status-live-soft);
+    --color-status-live-foreground: var(--status-live-foreground);
+    --color-status-done: var(--status-done);
+    --color-status-done-soft: var(--status-done-soft);
+    --color-status-done-foreground: var(--status-done-foreground);
+    --radius-chat: var(--chat-radius-bubble);
+    --radius-chat-cta: var(--chat-radius-cta);
 }
 
 :root {
@@ -88,6 +105,23 @@
     --sex-female-soft: oklch(0.96 0.03 10);
     --sex-male: oklch(0.62 0.1 250);
     --sex-male-soft: oklch(0.95 0.03 250);
+    --chat-bg: oklch(0.985 0.006 95);
+    --chat-bg-deep: oklch(0.968 0.01 90);
+    --bubble-out: oklch(0.3 0.025 240);
+    --bubble-out-foreground: oklch(0.99 0.002 95);
+    --bubble-in: oklch(1 0 0);
+    --bubble-in-foreground: oklch(0.22 0.015 240);
+    --status-wait: oklch(0.72 0.14 75);
+    --status-wait-soft: oklch(0.96 0.03 85);
+    --status-wait-foreground: oklch(0.38 0.08 65);
+    --status-live: oklch(0.62 0.1 220);
+    --status-live-soft: oklch(0.95 0.025 220);
+    --status-live-foreground: oklch(0.35 0.06 230);
+    --status-done: oklch(0.62 0.01 240);
+    --status-done-soft: oklch(0.96 0.005 240);
+    --status-done-foreground: oklch(0.42 0.015 240);
+    --chat-radius-bubble: 1rem;
+    --chat-radius-cta: 9999px;
 }
 
 .dark {
@@ -122,6 +156,23 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --chat-bg: oklch(0.2 0.012 240);
+    --chat-bg-deep: oklch(0.16 0.014 240);
+    --bubble-out: oklch(0.78 0.03 230);
+    --bubble-out-foreground: oklch(0.18 0.02 240);
+    --bubble-in: oklch(0.26 0.015 240);
+    --bubble-in-foreground: oklch(0.96 0.005 95);
+    --status-wait: oklch(0.78 0.12 80);
+    --status-wait-soft: oklch(0.28 0.04 75);
+    --status-wait-foreground: oklch(0.9 0.05 85);
+    --status-live: oklch(0.72 0.1 220);
+    --status-live-soft: oklch(0.28 0.04 220);
+    --status-live-foreground: oklch(0.88 0.04 220);
+    --status-done: oklch(0.7 0.01 240);
+    --status-done-soft: oklch(0.26 0.01 240);
+    --status-done-foreground: oklch(0.82 0.01 240);
+    --chat-radius-bubble: 1rem;
+    --chat-radius-cta: 9999px;
 }
 
 @layer base {
@@ -155,4 +206,33 @@
   background: color-mix(in oklch, var(--foreground) 30%, transparent);
   animation: timeline-pulse-ring 1.8s ease-out infinite;
   will-change: transform, opacity;
+}
+
+.chat-shell {
+  background:
+    linear-gradient(
+      180deg,
+      var(--chat-bg) 0%,
+      var(--chat-bg-deep) 100%
+    );
+}
+
+.chat-panel {
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in oklch, var(--chat-bg) 88%, white) 0%,
+      var(--chat-bg) 45%,
+      var(--chat-bg-deep) 100%
+    );
+}
+
+.dark .chat-panel {
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in oklch, var(--chat-bg) 80%, var(--chat-bg-deep)) 0%,
+      var(--chat-bg) 50%,
+      var(--chat-bg-deep) 100%
+    );
 }
