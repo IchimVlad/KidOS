@@ -25,13 +25,18 @@ export default function MedicPage({ searchParams }: PageProps) {
 
 async function MedicDashboard({ searchParams }: PageProps) {
   const params = await searchParams;
-  if (params.chat || params.tab) {
+  if (params.tab === "requested") {
+    redirect("/medic#solicitari");
+  }
+  if (params.chat || params.tab === "active" || params.tab === "closed") {
     const query = new URLSearchParams();
     if (params.chat) {
       query.set("chat", params.chat);
     }
-    if (params.tab) {
+    if (params.tab === "active" || params.tab === "closed") {
       query.set("tab", params.tab);
+    } else {
+      query.set("tab", "active");
     }
     redirect(`/medic/consultatii?${query.toString()}`);
   }

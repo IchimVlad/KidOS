@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { DemoDialog } from "@/components/patient-select/dialog";
 import {
-  CONSULT_ALARMS,
   CONSULT_PACKAGES,
-  CONSULT_REASONS,
+  alarmsForCohort,
+  consultCohortFromAge,
   consultationRequestSchema,
   hasCriticalAlarms,
+  reasonsForCohort,
   type ConsultAlarmId,
   type ConsultPackageId,
   type ConsultReasonId,
@@ -18,16 +19,22 @@ import { cn } from "@/lib/utils";
 export function RequestConsultationDialog({
   open,
   patientName,
+  ageYears,
   busy,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   patientName: string;
+  ageYears: number;
   busy: boolean;
   onClose: () => void;
   onSubmit: (input: ConsultationRequestInput) => void;
 }) {
+  const cohort = consultCohortFromAge(ageYears);
+  const reasons = reasonsForCohort(cohort);
+  const alarms = alarmsForCohort(cohort);
+
   const [reasonId, setReasonId] = useState<ConsultReasonId | null>(null);
   const [alarmIds, setAlarmIds] = useState<ConsultAlarmId[]>([]);
   const [description, setDescription] = useState("");
@@ -37,13 +44,14 @@ export function RequestConsultationDialog({
 
   const parsed = useMemo(() => {
     return consultationRequestSchema.safeParse({
+      cohort,
       reasonId,
       alarmIds,
       description,
       sinceLabel: sinceLabel.trim() || undefined,
       packageId,
     });
-  }, [reasonId, alarmIds, description, sinceLabel, packageId]);
+  }, [cohort, reasonId, alarmIds, description, sinceLabel, packageId]);
 
   const showCritical = hasCriticalAlarms(alarmIds);
 
@@ -73,6 +81,13 @@ export function RequestConsultationDialog({
     onSubmit(parsed.data);
   }
 
+  const cohortHint =
+    cohort === "child"
+      ? "Formular pentru copil"
+      : cohort === "elder"
+        ? "Formular pentru vârstnic"
+        : "Formular pentru adult";
+
   return (
     <DemoDialog
       open={open}
@@ -82,12 +97,14 @@ export function RequestConsultationDialog({
       size="lg"
     >
       <div className="space-y-5">
+        <p className="text-xs font-medium text-muted-foreground">{cohortHint}</p>
+
         <section className="space-y-2">
           <h3 className="text-sm font-semibold tracking-tight">
             Motivul principal
           </h3>
           <div className="flex flex-wrap gap-2">
-            {CONSULT_REASONS.map((reason) => {
+            {reasons.map((reason) => {
               const selected = reasonId === reason.id;
               return (
                 <button
@@ -116,7 +133,7 @@ export function RequestConsultationDialog({
             Semne de alarmă
           </h3>
           <ul className="space-y-2">
-            {CONSULT_ALARMS.map((alarm) => {
+            {alarms.map((alarm) => {
               const checked = alarmIds.includes(alarm.id);
               return (
                 <li key={alarm.id}>
@@ -150,7 +167,7 @@ export function RequestConsultationDialog({
             htmlFor="consult-description"
             className="text-sm font-semibold tracking-tight"
           >
-            Cum e copilul acum?
+            Cum e {patientName} acum?
           </label>
           <textarea
             id="consult-description"
@@ -181,7 +198,8 @@ export function RequestConsultationDialog({
             htmlFor="consult-since"
             className="text-sm font-semibold tracking-tight"
           >
-            De când? <span className="font-normal text-muted-foreground">(opțional)</span>
+            De când?{" "}
+            <span className="font-normal text-muted-foreground">(opțional)</span>
           </label>
           <input
             id="consult-since"

@@ -11,7 +11,6 @@ import {
   FilterChips,
   MetaLine,
   PrimaryButton,
-  SecondaryButton,
   SectionCard,
   TextButton,
 } from "@/components/patient-dashboard/ui";
@@ -24,7 +23,6 @@ import {
   displayValue,
   formatDemoDate,
   matchesTimelineFilter,
-  sourceLabel,
 } from "@/lib/patient-dashboard/labels";
 import type {
   DocumentType,
@@ -43,9 +41,19 @@ type Panel =
   | { kind: "event"; event: TimelineEvent }
   | { kind: "document"; document: MedicalDocument }
   | { kind: "prescription"; prescription: Prescription }
-  | { kind: "ask" }
   | { kind: "request-consult" }
   | null;
+
+function isUnspecified(text: string | null | undefined): boolean {
+  if (text == null || text.trim().length === 0) {
+    return true;
+  }
+  const normalized = text.toLowerCase();
+  return (
+    normalized === "nespecificat" ||
+    /\b(nu|nicio|niciun|fără|fara|necunoscut|necunoscute)\b/.test(normalized)
+  );
+}
 
 export function PatientDashboardPage({
   dashboard,
@@ -167,11 +175,25 @@ export function PatientDashboardPage({
           .filter((item): item is Prescription => item != null)
       : [];
 
+  const coverageHasData =
+    !isUnspecified(dashboard.coverage.familyDoctor) ||
+    dashboard.coverage.attendingDoctors.length > 0 ||
+    !isUnspecified(dashboard.coverage.insurance);
+
+  const showDocumentFilters = dashboard.documents.length > 3;
+  const familyHistoryHref = `/pacient/${dashboard.person.id}/istoric-familial${
+    queryString ? `?${queryString}` : ""
+  }`;
+  const recentPrescriptions = dashboard.prescriptions.slice(0, 5);
+
+  const activeIsPending =
+    dashboard.activeConsultation?.status === "pending";
+
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <header className="border-b border-border/80">
-        <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex items-center justify-between gap-3">
+    <div className="chat-shell min-h-dvh text-foreground">
+      <div className="sticky top-0 z-40">
+        <header className="border-b border-border/70 bg-card/90 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
+          <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
             <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
               <Link
                 href="/"
@@ -185,7 +207,7 @@ export function PatientDashboardPage({
                   className="size-7"
                 />
                 <span className="text-sm font-semibold tracking-tight text-foreground">
-                  Kidos
+                  KidOS
                 </span>
               </Link>
               <div
@@ -212,49 +234,79 @@ export function PatientDashboardPage({
               </Link>
             </div>
 
-            <div className="hidden shrink-0 items-center gap-2 sm:flex sm:gap-3">
-              <SecondaryButton
-                onClick={() => setPanel({ kind: "ask" })}
-                className="px-4 py-2 text-sm"
-              >
-                Întreabă KidOS
-              </SecondaryButton>
-              <PrimaryButton
-                onClick={openChat}
-                className="px-5 py-2 text-sm"
-              >
-                Deschide chat
-              </PrimaryButton>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-col gap-2 sm:hidden">
             <PrimaryButton
               onClick={openChat}
-              className="min-h-11 w-full px-4 py-2.5 text-sm"
+              className="min-h-11 shrink-0 px-4 py-2 text-sm sm:px-5"
             >
               Deschide chat
             </PrimaryButton>
-            <SecondaryButton
-              onClick={() => setPanel({ kind: "ask" })}
-              className="min-h-11 w-full px-4 py-2.5 text-sm"
-            >
-              Întreabă KidOS
-            </SecondaryButton>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-4 py-5 sm:gap-5 sm:px-6 sm:py-6 md:grid-cols-[minmax(0,38%)_minmax(0,1fr)] md:grid-rows-[auto_auto_auto_auto] md:gap-6 md:py-8">
+        {dashboard.activeConsultation ? (
+          <div
+            className={cn(
+              "border-b backdrop-blur-sm",
+              activeIsPending
+                ? "border-status-wait/30 bg-status-wait-soft/90"
+                : "border-status-live/25 bg-status-live-soft/90",
+            )}
+          >
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="min-w-0">
+                <p
+                  className={cn(
+                    "text-[11px] font-semibold tracking-wide uppercase",
+                    activeIsPending
+                      ? "text-status-wait-foreground"
+                      : "text-status-live-foreground",
+                  )}
+                >
+                  {activeIsPending ? "Solicitare trimisă" : "Consultație activă"}
+                </p>
+                <p className="mt-0.5 truncate text-sm font-semibold tracking-tight">
+                  {dashboard.activeConsultation.title}
+                </p>
+                <p
+                  className={cn(
+                    "mt-0.5 text-xs",
+                    activeIsPending
+                      ? "text-status-wait-foreground/90"
+                      : "text-status-live-foreground/90",
+                  )}
+                >
+                  {dashboard.activeConsultation.statusLabel}
+                </p>
+              </div>
+              <PrimaryButton
+                onClick={openActiveConsultation}
+                className="min-h-11 shrink-0 px-4 py-2 text-sm"
+              >
+                Deschide conversația
+              </PrimaryButton>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div
+        className={cn(
+          "mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-4 py-5 sm:gap-5 sm:px-6 sm:py-6 md:grid-cols-[minmax(0,38%)_minmax(0,1fr)] md:grid-rows-[auto_auto_auto] md:gap-6 md:py-8",
+          dashboard.activeConsultation == null
+            ? "pb-24 md:pb-8"
+            : "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
+        )}
+      >
         <SectionCard
           title="Profil"
+          quiet
           className={cn(
             "order-1 min-w-0 md:col-start-1 md:row-start-1 md:order-none",
             sexCardClass(dashboard.person.sex),
           )}
           action={
             <TextButton onClick={() => setPanel({ kind: "edit-profile" })}>
-              Editează profilul
+              Detalii profil
             </TextButton>
           }
         >
@@ -274,15 +326,21 @@ export function PatientDashboardPage({
               </p>
               <p className="text-sm text-muted-foreground">
                 {dashboard.person.ageLabel}
-                <span className="text-muted-foreground/80">
-                  {" "}
-                  · {RELATION_LABEL[dashboard.person.relation]} ·{" "}
-                  {SEX_LABEL[dashboard.person.sex]}
-                </span>
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {RELATION_LABEL[dashboard.person.relation]} ·{" "}
+                {SEX_LABEL[dashboard.person.sex]}
               </p>
             </div>
           </div>
-          <div className="mt-4">
+
+          {!coverageHasData ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Medic de familie și asigurare: nespecificate
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <PrimaryButton
               disabled={requestingConsult}
               onClick={() => setPanel({ kind: "request-consult" })}
@@ -290,40 +348,26 @@ export function PatientDashboardPage({
             >
               Solicită consultație
             </PrimaryButton>
+            <TextButton onClick={openChat} className="min-h-11 px-1 sm:px-2">
+              Deschide chat
+            </TextButton>
+          </div>
+
+          <div className="mt-4 border-t border-border/50 pt-3">
+            <Link
+              href={familyHistoryHref}
+              className="inline-flex min-h-10 items-center text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Istoric familial
+            </Link>
           </div>
         </SectionCard>
-
-        {dashboard.activeConsultation ? (
-          <SectionCard
-            title="Consultație activă"
-            className="order-2 min-w-0 md:col-start-2 md:row-start-3 md:order-none"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-              <div className="min-w-0">
-                <p className="font-medium">
-                  {dashboard.activeConsultation.title}
-                </p>
-                <MetaLine>
-                  {dashboard.activeConsultation.statusLabel}
-                </MetaLine>
-              </div>
-              <TextButton onClick={openActiveConsultation}>
-                Deschide conversația
-              </TextButton>
-            </div>
-          </SectionCard>
-        ) : null}
 
         <SectionCard
           title="Timeline medical"
           emphasized
-          className="order-3 flex min-h-0 min-w-0 flex-col md:col-start-2 md:row-span-2 md:row-start-1 md:order-none md:h-0 md:min-h-full"
-          bodyClassName="flex min-h-0 flex-1 flex-col gap-4 sm:gap-5"
-          action={
-            <span className="text-xs text-muted-foreground">
-              Cele mai recente primele
-            </span>
-          }
+          className="order-2 flex min-h-0 min-w-0 flex-col md:col-start-2 md:row-span-2 md:row-start-1 md:order-none md:h-0 md:min-h-full"
+          bodyClassName="flex min-h-0 flex-1 flex-col gap-3 sm:gap-4"
         >
           <div className="shrink-0">
             <FilterChips
@@ -336,65 +380,78 @@ export function PatientDashboardPage({
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain overflow-x-visible">
             {filteredEvents.length === 0 ? (
-              <EmptyNote>
-                Nu există evenimente pentru acest filtru.
-              </EmptyNote>
+              <div className="flex min-h-40 flex-col items-start justify-center gap-3 py-2">
+                <EmptyNote>
+                  {timelineFilter === "all"
+                    ? "Nu există încă evenimente în timeline."
+                    : "Nu există evenimente pentru acest filtru."}
+                </EmptyNote>
+                {timelineFilter === "all" &&
+                dashboard.activeConsultation == null ? (
+                  <PrimaryButton
+                    disabled={requestingConsult}
+                    onClick={() => setPanel({ kind: "request-consult" })}
+                    className="min-h-11 px-4 py-2 text-sm"
+                  >
+                    Solicită consultație
+                  </PrimaryButton>
+                ) : null}
+              </div>
             ) : (
-              <ol className="space-y-0 py-2 pl-4">
+              <ol className="space-y-0 py-1 pl-3 sm:pl-4">
                 {filteredEvents.map((event, index) => {
                   const isLast = index === filteredEvents.length - 1;
                   const isLatest = index === 0;
                   return (
-                    <li key={event.id} className="flex gap-3 sm:gap-4">
+                    <li key={event.id} className="flex gap-2.5 sm:gap-3">
                       <div
-                        className="relative flex w-5 shrink-0 justify-center self-stretch overflow-visible"
+                        className="relative flex w-4 shrink-0 justify-center self-stretch overflow-visible sm:w-5"
                         aria-hidden="true"
                       >
                         <span
                           className={cn(
                             "absolute left-1/2 w-px -translate-x-1/2 bg-border",
-                            isLatest ? "top-4" : "top-0",
-                            isLast ? "h-4" : "bottom-0",
+                            isLatest ? "top-3.5" : "top-0",
+                            isLast ? "h-3.5" : "bottom-0",
                           )}
                         />
-                        <span className="relative z-10 mt-2.5 flex size-3 shrink-0 items-center justify-center">
+                        <span className="relative z-10 mt-2 flex size-2.5 shrink-0 items-center justify-center sm:mt-2.5 sm:size-3">
                           {isLatest ? (
                             <span className="timeline-pulse-ring pointer-events-none absolute inset-0 rounded-full" />
                           ) : null}
-                          <span className="relative size-3 rounded-full border-2 border-background bg-foreground shadow-[0_0_0_4px] shadow-foreground/10" />
+                          <span className="relative size-2.5 rounded-full border-2 border-background bg-foreground shadow-[0_0_0_3px] shadow-foreground/10 sm:size-3 sm:shadow-[0_0_0_4px]" />
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => openEvent(event)}
                         className={cn(
-                          "min-w-0 flex-1 rounded-xl p-2.5 text-left transition-colors duration-150 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-3",
-                          !isLast && "mb-2 sm:mb-3",
+                          "min-w-0 flex-1 rounded-xl px-2 py-2 text-left transition-colors duration-150 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2.5 sm:py-2.5",
+                          !isLast && "mb-1.5 sm:mb-2",
                         )}
                       >
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <time
                             dateTime={event.date}
-                            className="text-xs font-medium text-muted-foreground"
+                            className="text-[11px] font-medium tabular-nums text-muted-foreground"
                           >
                             {formatDemoDate(event.date)}
                           </time>
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
                             {EVENT_TYPE_LABEL[event.type]}
                           </span>
                           {event.hasAttachment ? (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-[11px] text-muted-foreground">
                               Atașament
                             </span>
                           ) : null}
                         </div>
-                        <p className="mt-2 font-semibold tracking-tight">
+                        <p className="mt-1 text-sm font-semibold tracking-tight">
                           {event.title}
                         </p>
-                        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                        <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
                           {event.summary}
                         </p>
-                        <MetaLine>{event.source}</MetaLine>
                       </button>
                     </li>
                   );
@@ -406,7 +463,7 @@ export function PatientDashboardPage({
 
         <section
           className={cn(
-            "order-4 min-w-0 rounded-2xl border border-border bg-background p-4 sm:p-5 md:col-start-1 md:row-start-2 md:order-none md:p-6",
+            "order-3 min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-5 md:col-start-1 md:row-start-2 md:order-none md:p-6",
             dashboard.person.sex === "female" && "border-sex-female/25",
             dashboard.person.sex === "male" && "border-sex-male/25",
           )}
@@ -432,58 +489,126 @@ export function PatientDashboardPage({
           </div>
         </section>
 
-        <div className="order-5 min-w-0 md:col-start-1 md:row-start-4 md:order-none">
-          <CoverageCard dashboard={dashboard} />
-        </div>
-
-        <SectionCard
-          title="Documente medicale"
-          className="order-6 min-w-0 md:col-start-2 md:row-start-4 md:order-none"
-        >
-          <div className="mb-4">
-            <FilterChips
-              label="Filtre documente"
-              options={DOCUMENT_FILTERS}
-              value={documentFilter}
-              onChange={setDocumentFilter}
-            />
+        {coverageHasData ? (
+          <div className="order-4 min-w-0 md:col-start-1 md:row-start-3 md:order-none">
+            <CoverageCard dashboard={dashboard} />
           </div>
-          {filteredDocuments.length === 0 ? (
-            <EmptyNote>Nu există documente pentru acest filtru.</EmptyNote>
-          ) : (
-            <ul className="divide-y divide-border">
-              {filteredDocuments.map((document) => {
-                const relatedEvent = document.eventId
-                  ? dashboard.events.find(
-                      (event) => event.id === document.eventId,
-                    )
-                  : null;
-                return (
-                  <li key={document.id}>
-                    <button
-                      type="button"
-                      onClick={() => openDocument(document)}
-                      className="flex min-h-11 w-full flex-col gap-1 py-3 text-left transition-colors duration-150 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span className="font-medium">{document.title}</span>
-                      <MetaLine>
-                        {DOCUMENT_TYPE_LABEL[document.type]} ·{" "}
-                        {formatDemoDate(document.date)}
-                        {relatedEvent ? ` · ${relatedEvent.title}` : ""}
-                      </MetaLine>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </SectionCard>
+        ) : null}
+
+        <section className="order-5 min-w-0 rounded-2xl border border-border/70 bg-muted/70 p-4 sm:p-5 md:col-start-2 md:row-start-3 md:order-none md:p-6">
+          <h2 className="text-base font-semibold tracking-tight sm:text-lg">
+            Dosar medical
+          </h2>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2 sm:gap-6">
+            <div className="min-w-0">
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <h3 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  Documente
+                </h3>
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {filteredDocuments.length}
+                </span>
+              </div>
+              {showDocumentFilters ? (
+                <div className="mb-3">
+                  <FilterChips
+                    label="Filtre documente"
+                    options={DOCUMENT_FILTERS}
+                    value={documentFilter}
+                    onChange={setDocumentFilter}
+                  />
+                </div>
+              ) : null}
+              {filteredDocuments.length === 0 ? (
+                <EmptyNote>
+                  {showDocumentFilters
+                    ? "Niciun document pentru filtru."
+                    : "Niciun document încă."}
+                </EmptyNote>
+              ) : (
+                <ul className="divide-y divide-border/70">
+                  {filteredDocuments.map((document) => (
+                    <li key={document.id}>
+                      <button
+                        type="button"
+                        onClick={() => openDocument(document)}
+                        className="flex min-h-11 w-full items-start justify-between gap-3 py-2.5 text-left transition-colors duration-150 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium leading-snug">
+                            {document.title}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            {DOCUMENT_TYPE_LABEL[document.type]}
+                          </span>
+                        </span>
+                        <span className="shrink-0 pt-0.5 text-[11px] tabular-nums text-muted-foreground">
+                          {formatDemoDate(document.date)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="min-w-0 border-t border-border/50 pt-4 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <h3 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  Rețete
+                </h3>
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {dashboard.prescriptions.length}
+                </span>
+              </div>
+              {recentPrescriptions.length === 0 ? (
+                <EmptyNote>Nicio rețetă încă.</EmptyNote>
+              ) : (
+                <ul className="divide-y divide-border/70">
+                  {recentPrescriptions.map((prescription) => (
+                    <li key={prescription.id}>
+                      <button
+                        type="button"
+                        onClick={() => openPrescription(prescription)}
+                        className="flex min-h-11 w-full items-start justify-between gap-3 py-2.5 text-left transition-colors duration-150 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium leading-snug">
+                            {prescription.title}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            {prescription.doctorName}
+                          </span>
+                        </span>
+                        <span className="shrink-0 pt-0.5 text-[11px] tabular-nums text-muted-foreground">
+                          {formatDemoDate(prescription.date)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
+
+      {dashboard.activeConsultation == null ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-card/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm md:hidden">
+          <PrimaryButton
+            disabled={requestingConsult}
+            onClick={() => setPanel({ kind: "request-consult" })}
+            className="min-h-11 w-full px-4 py-2.5 text-sm"
+          >
+            Solicită consultație
+          </PrimaryButton>
+        </div>
+      ) : null}
 
       <DemoDialog
         open={panel?.kind === "edit-profile"}
-        title="Editează profilul"
-        description="Previzualizare a datelor de profil. Editarea nu este disponibilă aici."
+        title="Detalii profil"
+        description={`${dashboard.person.firstName} · ${dashboard.person.ageLabel}`}
         onClose={closePanel}
       >
         <dl className="space-y-3 text-sm">
@@ -524,27 +649,25 @@ export function PatientDashboardPage({
       <DemoDialog
         open={panel?.kind === "event"}
         title={panel?.kind === "event" ? panel.event.title : "Eveniment"}
-        description="Detalii ale evenimentului din timeline."
+        description={
+          panel?.kind === "event"
+            ? `${EVENT_TYPE_LABEL[panel.event.type]} · ${formatDemoDate(panel.event.date)}`
+            : undefined
+        }
         onClose={closePanel}
         size="lg"
       >
         {panel?.kind === "event" ? (
           <div className="space-y-4 text-sm">
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-                {EVENT_TYPE_LABEL[panel.event.type]}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {formatDemoDate(panel.event.date)}
-              </span>
-            </div>
             <p className="leading-relaxed">{panel.event.detail}</p>
             <MetaLine>{panel.event.source}</MetaLine>
 
             <div>
-              <h3 className="mb-2 font-medium">Documente asociate</h3>
+              <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Documente asociate
+              </h3>
               {eventDocuments.length === 0 ? (
-                <EmptyNote>Nespecificat</EmptyNote>
+                <EmptyNote>Niciun document asociat.</EmptyNote>
               ) : (
                 <ul className="space-y-2">
                   {eventDocuments.map((document) => (
@@ -561,9 +684,11 @@ export function PatientDashboardPage({
             </div>
 
             <div>
-              <h3 className="mb-2 font-medium">Prescripții asociate</h3>
+              <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Rețete asociate
+              </h3>
               {eventPrescriptions.length === 0 ? (
-                <EmptyNote>Nespecificat</EmptyNote>
+                <EmptyNote>Nicio rețetă asociată.</EmptyNote>
               ) : (
                 <ul className="space-y-2">
                   {eventPrescriptions.map((prescription) => (
@@ -591,16 +716,16 @@ export function PatientDashboardPage({
         title={
           panel?.kind === "document" ? panel.document.title : "Document"
         }
-        description="Previzualizare document. Fără descărcare sau upload."
+        description={
+          panel?.kind === "document"
+            ? `${DOCUMENT_TYPE_LABEL[panel.document.type]} · ${formatDemoDate(panel.document.date)}`
+            : undefined
+        }
         onClose={closePanel}
         size="md"
       >
         {panel?.kind === "document" ? (
           <div className="space-y-4 text-sm">
-            <MetaLine>
-              {DOCUMENT_TYPE_LABEL[panel.document.type]} ·{" "}
-              {formatDemoDate(panel.document.date)}
-            </MetaLine>
             <p className="rounded-xl bg-muted/60 p-4 leading-relaxed">
               {panel.document.preview}
             </p>
@@ -632,16 +757,16 @@ export function PatientDashboardPage({
             ? panel.prescription.title
             : "Prescripție"
         }
-        description="Detalii ale prescripției. Nu confirmă valabilitatea curentă."
+        description={
+          panel?.kind === "prescription"
+            ? `${formatDemoDate(panel.prescription.date)} · ${panel.prescription.doctorName}`
+            : undefined
+        }
         onClose={closePanel}
         size="md"
       >
         {panel?.kind === "prescription" ? (
           <div className="space-y-4 text-sm">
-            <MetaLine>
-              {formatDemoDate(panel.prescription.date)} ·{" "}
-              {panel.prescription.doctorName}
-            </MetaLine>
             <p className="leading-relaxed">{panel.prescription.instructions}</p>
             {panel.prescription.eventId ? (
               <TextButton
@@ -664,27 +789,13 @@ export function PatientDashboardPage({
         ) : null}
       </DemoDialog>
 
-      <DemoDialog
-        open={panel?.kind === "ask"}
-        title="Întreabă KidOS"
-        description="Asistentul nu este activ momentan."
-        onClose={closePanel}
-      >
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          KidOS nu generează răspunsuri medicale aici. Poți folosi timeline-ul și
-          documentele pentru a revizui istoricul persoanei selectate.
-        </p>
-        <div className="flex justify-end pt-2">
-          <PrimaryButton onClick={closePanel}>Închide</PrimaryButton>
-        </div>
-      </DemoDialog>
-
       <RequestConsultationDialog
         key={
           panel?.kind === "request-consult" ? "request-open" : "request-closed"
         }
         open={panel?.kind === "request-consult"}
         patientName={dashboard.person.firstName}
+        ageYears={dashboard.person.ageYears}
         busy={requestingConsult}
         onClose={closePanel}
         onSubmit={(input) => void submitConsultationRequest(input)}
@@ -698,79 +809,110 @@ function HealthSummaryContent({
 }: {
   dashboard: PatientDashboard;
 }) {
+  const allergyText = dashboard.health.allergies[0]?.text ?? null;
+  const conditionText = dashboard.health.conditions[0]?.text ?? null;
+  const treatmentText = dashboard.health.currentTreatments[0]?.text ?? null;
+  const allergyClear = isUnspecified(allergyText);
+  const conditionClear = isUnspecified(conditionText);
+  const treatmentClear = isUnspecified(treatmentText);
+
   return (
-    <div className="space-y-4 sm:space-y-5">
-      <SummaryBlock
-        title="Alergii"
-        items={dashboard.health.allergies.map((item) => ({
-          text: displayValue(item.text),
-          source: sourceLabel(item.source),
-        }))}
-      />
-      <SummaryBlock
-        title="Afecțiuni cunoscute"
-        items={dashboard.health.conditions.map((item) => ({
-          text: displayValue(item.text),
-          source: sourceLabel(item.source),
-        }))}
-      />
-      <SummaryBlock
-        title="Tratamente curente"
-        items={dashboard.health.currentTreatments.map((item) => ({
-          text: displayValue(item.text),
-          source: sourceLabel(item.source),
-        }))}
-      />
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <SafetyChip
+          label="Alergii"
+          value={allergyClear ? "Fără alergii cunoscute" : displayValue(allergyText)}
+          tone={allergyClear ? "clear" : "alert"}
+        />
+        <SafetyChip
+          label="Afecțiuni"
+          value={
+            conditionClear
+              ? "Fără afecțiuni declarate"
+              : displayValue(conditionText)
+          }
+          tone={conditionClear ? "clear" : "alert"}
+        />
+        <SafetyChip
+          label="Tratamente"
+          value={
+            treatmentClear
+              ? "Fără tratamente curente"
+              : displayValue(treatmentText)
+          }
+          tone="clear"
+        />
+      </div>
+
       <div>
-        <h3 className="mb-2 text-sm font-medium">Ultimele măsurători</h3>
-        <ul className="divide-y divide-border/70">
-          {dashboard.health.measurements.map((measurement) => (
-            <li
-              key={measurement.id}
-              className="flex items-baseline justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0"
-            >
-              <span className="min-w-0">
-                <span className="font-medium">{measurement.label}</span>
-                <MetaLine>
-                  {formatDemoDate(measurement.recordedAt)}
-                  {sourceLabel(measurement.source)
-                    ? ` · ${sourceLabel(measurement.source)}`
-                    : ""}
-                </MetaLine>
-              </span>
-              <span className="shrink-0 tabular-nums">
-                {measurement.value == null
-                  ? "Nespecificat"
-                  : `${measurement.value}${measurement.unit ? ` ${measurement.unit}` : ""}`}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <h3 className="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Măsurători
+        </h3>
+        {dashboard.health.measurements.length === 0 ? (
+          <EmptyNote>Fără măsurători</EmptyNote>
+        ) : (
+          <ul className="grid grid-cols-3 gap-2">
+            {dashboard.health.measurements.slice(0, 6).map((measurement) => (
+              <li
+                key={measurement.id}
+                className="rounded-xl border border-border/60 bg-muted/30 px-2.5 py-2.5"
+              >
+                <p className="truncate text-[10px] font-medium text-muted-foreground">
+                  {measurement.label}
+                </p>
+                <p className="mt-1 truncate text-base font-semibold tracking-tight tabular-nums">
+                  {measurement.value == null ? "—" : measurement.value}
+                  {measurement.value != null && measurement.unit ? (
+                    <span className="ml-0.5 text-xs font-medium text-muted-foreground">
+                      {measurement.unit}
+                    </span>
+                  ) : null}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
 }
 
-function SummaryBlock({
-  title,
-  items,
+function SafetyChip({
+  label,
+  value,
+  tone,
 }: {
-  title: string;
-  items: { text: string; source: string | null }[];
+  label: string;
+  value: string;
+  tone: "clear" | "alert";
 }) {
   return (
-    <div>
-      <h3 className="mb-1.5 text-sm font-medium">{title}</h3>
-      <ul className="space-y-1.5">
-        {items.map((item, index) => (
-          <li key={`${title}-${index}`} className="text-sm leading-relaxed">
-            <p>{item.text}</p>
-            {item.source && item.text !== "Nespecificat" ? (
-              <MetaLine>{item.source}</MetaLine>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+    <div
+      className={cn(
+        "rounded-xl border px-3 py-2.5",
+        tone === "alert"
+          ? "border-status-wait/40 bg-status-wait-soft text-status-wait-foreground"
+          : "border-border/60 bg-muted/30 text-muted-foreground",
+      )}
+    >
+      <p
+        className={cn(
+          "text-[10px] font-semibold tracking-wide uppercase",
+          tone === "alert"
+            ? "text-status-wait-foreground/80"
+            : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-0.5 text-sm leading-snug",
+          tone === "alert" ? "font-medium" : "font-normal",
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -781,29 +923,42 @@ function CoverageCard({
   dashboard: PatientDashboard;
 }) {
   return (
-    <SectionCard title="Medici și acoperire">
-      <dl className="space-y-4 text-sm">
-        <div>
-          <dt className="font-medium">Medic de familie</dt>
-          <dd className="mt-1 text-muted-foreground">
-            {displayValue(dashboard.coverage.familyDoctor)}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium">Medici curanți</dt>
-          <dd className="mt-1 text-muted-foreground">
-            {dashboard.coverage.attendingDoctors.length > 0
-              ? dashboard.coverage.attendingDoctors.join(", ")
-              : "Nespecificat"}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium">Asigurare</dt>
-          <dd className="mt-1 text-muted-foreground">
-            {displayValue(dashboard.coverage.insurance)}
-          </dd>
-        </div>
+    <section className="rounded-2xl border border-border/70 bg-muted/70 p-4 sm:p-5">
+      <h2 className="text-sm font-semibold tracking-tight">
+        Medici și acoperire
+      </h2>
+      <dl className="mt-3 space-y-3 text-sm">
+        {!isUnspecified(dashboard.coverage.familyDoctor) ? (
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">
+              Medic de familie
+            </dt>
+            <dd className="mt-0.5 font-medium">
+              {dashboard.coverage.familyDoctor}
+            </dd>
+          </div>
+        ) : null}
+        {dashboard.coverage.attendingDoctors.length > 0 ? (
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">
+              Medici curanți
+            </dt>
+            <dd className="mt-0.5 font-medium">
+              {dashboard.coverage.attendingDoctors.join(", ")}
+            </dd>
+          </div>
+        ) : null}
+        {!isUnspecified(dashboard.coverage.insurance) ? (
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">
+              Asigurare
+            </dt>
+            <dd className="mt-0.5 font-medium">
+              {dashboard.coverage.insurance}
+            </dd>
+          </div>
+        ) : null}
       </dl>
-    </SectionCard>
+    </section>
   );
 }

@@ -1,9 +1,11 @@
 import "server-only";
 
+import { formatConsultationTitle } from "@/lib/consultations/format";
 import {
   ageLabelFromDob,
   ageYearsFromDob,
   consultationStatusLabel,
+  mapConsultationStatus,
   mapDocumentType,
   mapInfoSource,
   mapRelationFromDb,
@@ -11,8 +13,8 @@ import {
   mapTimelineEventType,
   medicalEventSourceLabel,
   toIsoDate,
-  toIsoDateTime,
 } from "@/lib/data/mappers";
+import { filterPersistentMeasurements } from "@/lib/patient-dashboard/measurements";
 import type { PatientDashboard } from "@/lib/patient-dashboard/types";
 import { getPrismaClient } from "@/lib/prisma";
 
@@ -72,6 +74,7 @@ export async function getPatientDashboardById(
       firstName: profile.preferredName?.trim() || profile.firstName,
       relation: mapRelationFromDb(relationship?.type ?? null, age),
       sex: mapSex(profile.sex),
+      ageYears: age,
       ageLabel: ageLabelFromDob(profile.dateOfBirth),
       editDetails: {
         preferredName: profile.preferredName,
@@ -82,14 +85,16 @@ export async function getPatientDashboardById(
       allergies,
       conditions,
       currentTreatments,
-      measurements: profile.measurements.map((measurement) => ({
-        id: measurement.id,
-        label: measurement.label,
-        value: measurement.value,
-        unit: measurement.unit,
-        recordedAt: toIsoDate(measurement.recordedAt),
-        source: mapInfoSource(measurement.source),
-      })),
+      measurements: filterPersistentMeasurements(profile.measurements).map(
+        (measurement) => ({
+          id: measurement.id,
+          label: measurement.label,
+          value: measurement.value,
+          unit: measurement.unit,
+          recordedAt: toIsoDate(measurement.recordedAt),
+          source: mapInfoSource(measurement.source),
+        }),
+      ),
     },
     coverage: {
       familyDoctor: profile.familyDoctor,
@@ -129,7 +134,8 @@ export async function getPatientDashboardById(
     activeConsultation: active
       ? {
           id: active.id,
-          title: `Consultație · ${toIsoDateTime(active.createdAt).slice(11, 16)}`,
+          title: formatConsultationTitle(active.createdAt),
+          status: mapConsultationStatus(active.status),
           statusLabel: consultationStatusLabel(active.status),
         }
       : null,
