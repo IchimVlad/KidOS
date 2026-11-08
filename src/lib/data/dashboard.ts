@@ -16,6 +16,7 @@ import {
 } from "@/lib/data/mappers";
 import { filterPersistentMeasurements } from "@/lib/patient-dashboard/measurements";
 import type { PatientDashboard } from "@/lib/patient-dashboard/types";
+import { splitMedicalProfileValues } from "@/lib/medical-extraction";
 import { getPrismaClient } from "@/lib/prisma";
 
 const ACTIVE_CONSULTATION_STATUSES = [
@@ -23,6 +24,13 @@ const ACTIVE_CONSULTATION_STATUSES = [
   "ACCEPTED",
   "IN_PROGRESS",
 ] as const;
+
+function mapProfileMedicalValues(value: string | null) {
+  const items = splitMedicalProfileValues(value);
+  return items.length > 0
+    ? items.map((text) => ({ text }))
+    : [{ text: null }];
+}
 
 export async function getPatientDashboardById(
   patientId: string,
@@ -57,16 +65,6 @@ export async function getPatientDashboardById(
   const relationship = profile.relationshipsAsPatient[0] ?? null;
   const age = ageYearsFromDob(profile.dateOfBirth);
   const active = profile.requestedConsultations[0] ?? null;
-
-  const allergies = profile.allergies
-    ? [{ text: profile.allergies, source: "declared" as const }]
-    : [{ text: null }];
-  const conditions = profile.chronicConditions
-    ? [{ text: profile.chronicConditions, source: "declared" as const }]
-    : [{ text: null }];
-  const currentTreatments = profile.currentTreatments
-    ? [{ text: profile.currentTreatments, source: "declared" as const }]
-    : [{ text: null }];
 
   return {
     person: {

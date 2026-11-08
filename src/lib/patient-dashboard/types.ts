@@ -7,14 +7,16 @@ export type TimelineEventType =
   | "observation"
   | "analysis"
   | "vaccination"
-  | "treatment_change";
+  | "treatment_change"
+  | "profile_update";
 
 export type TimelineFilter =
   | "all"
   | "consultation"
   | "analysis"
   | "treatment"
-  | "observation";
+  | "observation"
+  | "profile";
 
 export type DocumentType =
   | "analysis"
