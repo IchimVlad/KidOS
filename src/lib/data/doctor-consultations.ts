@@ -17,7 +17,7 @@ import type {
   DoctorInboxTab,
   DoctorPatientContext,
 } from "@/lib/doctor/types";
-import { filterPersistentMeasurements } from "@/lib/patient-dashboard/measurements";
+import { pickFormMeasurements } from "@/lib/patient-dashboard/measurements";
 import { getPrismaClient } from "@/lib/prisma";
 import type {
   ConsultationMessageSender,
@@ -377,15 +377,16 @@ export async function getDoctorPatientContext(
       [profile.emergencyContactName, profile.emergencyContactPhone]
         .filter(Boolean)
         .join(" · ") || null,
-    measurements: filterPersistentMeasurements(profile.measurements)
-      .slice(0, 4)
-      .map((measurement) => ({
+    measurements: pickFormMeasurements(
+      profile.measurements.map((measurement) => ({
         id: measurement.id,
         label: measurement.label,
         value: measurement.value ?? "",
         unit: measurement.unit,
         recordedAt: toIsoDate(measurement.recordedAt),
+        source: measurement.source === "DECLARED" ? "declared" : "consultation",
       })),
+    ),
     events: profile.timelineEvents.map((event) => ({
       id: event.id,
       title: event.title,

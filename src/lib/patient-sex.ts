@@ -39,3 +39,14 @@ export function sexDotClass(sex: PatientSex | null | undefined): string {
     sex == null && "bg-foreground/40",
   );
 }
+
+/** Scopes calm rose/blue accents for a patient profile surface. */
+export function sexThemeClass(sex: PatientSex | null | undefined): string {
+  if (sex === "female") {
+    return "theme-sex-female";
+  }
+  if (sex === "male") {
+    return "theme-sex-male";
+  }
+  return "";
+}

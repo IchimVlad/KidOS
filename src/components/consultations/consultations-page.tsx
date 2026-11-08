@@ -36,6 +36,7 @@ import {
 } from "@/lib/medical-extraction";
 import type { MedicalExtractionDraft } from "@/lib/data/medical-extractions";
 import type { PatientSex } from "@/lib/patient-select";
+import { sexThemeClass } from "@/lib/patient-sex";
 import { cn } from "@/lib/utils";
 
 function statusDotClass(status: ConsultationStatus): string {
@@ -523,7 +524,12 @@ export function ConsultationsPage({
     "transition-transform duration-300 ease-out motion-reduce:transition-none";
 
   return (
-    <div className="chat-shell flex h-dvh flex-col overflow-hidden text-foreground">
+    <div
+      className={cn(
+        "chat-shell flex h-dvh flex-col overflow-hidden text-foreground",
+        sexThemeClass(patientSex),
+      )}
+    >
       <header
         className={cn(
           "shrink-0 border-b border-border/70 bg-background/80 pt-[env(safe-area-inset-top)] backdrop-blur-sm",

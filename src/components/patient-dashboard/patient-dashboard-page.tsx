@@ -33,7 +33,7 @@ import type {
   TimelineFilter,
 } from "@/lib/patient-dashboard/types";
 import { RELATION_LABEL, SEX_LABEL } from "@/lib/patient-select";
-import { sexCardClass, sexDotClass } from "@/lib/patient-sex";
+import { sexCardClass, sexDotClass, sexThemeClass } from "@/lib/patient-sex";
 import { cn } from "@/lib/utils";
 
 type Panel =
@@ -181,16 +181,18 @@ export function PatientDashboardPage({
     !isUnspecified(dashboard.coverage.insurance);
 
   const showDocumentFilters = dashboard.documents.length > 3;
-  const familyHistoryHref = `/pacient/${dashboard.person.id}/istoric-familial${
-    queryString ? `?${queryString}` : ""
-  }`;
   const recentPrescriptions = dashboard.prescriptions.slice(0, 5);
 
   const activeIsPending =
     dashboard.activeConsultation?.status === "pending";
 
   return (
-    <div className="chat-shell min-h-dvh text-foreground">
+    <div
+      className={cn(
+        "chat-shell min-h-dvh text-foreground",
+        sexThemeClass(dashboard.person.sex),
+      )}
+    >
       <div className="sticky top-0 z-40">
         <header className="border-b border-border/70 bg-card/90 pt-[env(safe-area-inset-top)] backdrop-blur-sm">
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
@@ -351,15 +353,6 @@ export function PatientDashboardPage({
             <TextButton onClick={openChat} className="min-h-11 px-1 sm:px-2">
               Deschide chat
             </TextButton>
-          </div>
-
-          <div className="mt-4 border-t border-border/50 pt-3">
-            <Link
-              href={familyHistoryHref}
-              className="inline-flex min-h-10 items-center text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Istoric familial
-            </Link>
           </div>
         </SectionCard>
 
@@ -804,43 +797,47 @@ export function PatientDashboardPage({
   );
 }
 
+function splitHealthItems(text: string | null | undefined): string[] {
+  if (text == null || isUnspecified(text)) {
+    return [];
+  }
+  return text
+    .split(/(?:\r?\n+|;\s*|,\s*(?=[A-ZĂÂÎȘȚ])|\s+•\s+|\s+-\s+|\s+și\s+)/i)
+    .map((part) => part.replace(/^[\s,;•\-–]+|[\s,;•\-–]+$/g, "").trim())
+    .filter((part) => part.length > 0 && !isUnspecified(part));
+}
+
 function HealthSummaryContent({
   dashboard,
 }: {
   dashboard: PatientDashboard;
 }) {
-  const allergyText = dashboard.health.allergies[0]?.text ?? null;
-  const conditionText = dashboard.health.conditions[0]?.text ?? null;
-  const treatmentText = dashboard.health.currentTreatments[0]?.text ?? null;
-  const allergyClear = isUnspecified(allergyText);
-  const conditionClear = isUnspecified(conditionText);
-  const treatmentClear = isUnspecified(treatmentText);
+  const allergies = splitHealthItems(dashboard.health.allergies[0]?.text);
+  const conditions = splitHealthItems(dashboard.health.conditions[0]?.text);
+  const treatments = splitHealthItems(
+    dashboard.health.currentTreatments[0]?.text,
+  );
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <SafetyChip
+      <div className="space-y-3">
+        <HealthFactList
           label="Alergii"
-          value={allergyClear ? "Fără alergii cunoscute" : displayValue(allergyText)}
-          tone={allergyClear ? "clear" : "alert"}
+          items={allergies}
+          emptyLabel="Fără alergii cunoscute"
+          tone="alert"
         />
-        <SafetyChip
+        <HealthFactList
           label="Afecțiuni"
-          value={
-            conditionClear
-              ? "Fără afecțiuni declarate"
-              : displayValue(conditionText)
-          }
-          tone={conditionClear ? "clear" : "alert"}
+          items={conditions}
+          emptyLabel="Fără afecțiuni declarate"
+          tone="alert"
         />
-        <SafetyChip
+        <HealthFactList
           label="Tratamente"
-          value={
-            treatmentClear
-              ? "Fără tratamente curente"
-              : displayValue(treatmentText)
-          }
-          tone="clear"
+          items={treatments}
+          emptyLabel="Fără tratamente curente"
+          tone="neutral"
         />
       </div>
 
@@ -849,13 +846,13 @@ function HealthSummaryContent({
           Măsurători
         </h3>
         {dashboard.health.measurements.length === 0 ? (
-          <EmptyNote>Fără măsurători</EmptyNote>
+          <EmptyNote>Fără măsurători din formular</EmptyNote>
         ) : (
-          <ul className="grid grid-cols-3 gap-2">
-            {dashboard.health.measurements.slice(0, 6).map((measurement) => (
+          <ul className="grid grid-cols-2 gap-2">
+            {dashboard.health.measurements.slice(0, 4).map((measurement) => (
               <li
                 key={measurement.id}
-                className="rounded-xl border border-border/60 bg-muted/30 px-2.5 py-2.5"
+                className="rounded-xl border border-border/70 bg-card px-3 py-2.5"
               >
                 <p className="truncate text-[10px] font-medium text-muted-foreground">
                   {measurement.label}
@@ -877,42 +874,50 @@ function HealthSummaryContent({
   );
 }
 
-function SafetyChip({
+function HealthFactList({
   label,
-  value,
+  items,
+  emptyLabel,
   tone,
 }: {
   label: string;
-  value: string;
-  tone: "clear" | "alert";
+  items: string[];
+  emptyLabel: string;
+  tone: "alert" | "neutral";
 }) {
+  const hasItems = items.length > 0;
+
   return (
-    <div
-      className={cn(
-        "rounded-xl border px-3 py-2.5",
-        tone === "alert"
-          ? "border-status-wait/40 bg-status-wait-soft text-status-wait-foreground"
-          : "border-border/60 bg-muted/30 text-muted-foreground",
+    <div className="rounded-xl border border-border/70 bg-card px-3 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          {label}
+        </h3>
+        {hasItems ? (
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            {items.length}
+          </span>
+        ) : null}
+      </div>
+      {hasItems ? (
+        <ul className="mt-2.5 flex flex-wrap gap-1.5">
+          {items.map((item) => (
+            <li
+              key={`${label}-${item}`}
+              className={cn(
+                "max-w-full rounded-lg border px-2.5 py-1.5 text-sm leading-snug",
+                tone === "alert"
+                  ? "border-primary/25 bg-accent text-accent-foreground"
+                  : "border-border bg-secondary text-secondary-foreground",
+              )}
+            >
+              {item}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">{emptyLabel}</p>
       )}
-    >
-      <p
-        className={cn(
-          "text-[10px] font-semibold tracking-wide uppercase",
-          tone === "alert"
-            ? "text-status-wait-foreground/80"
-            : "text-muted-foreground",
-        )}
-      >
-        {label}
-      </p>
-      <p
-        className={cn(
-          "mt-0.5 text-sm leading-snug",
-          tone === "alert" ? "font-medium" : "font-normal",
-        )}
-      >
-        {value}
-      </p>
     </div>
   );
 }

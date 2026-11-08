@@ -299,6 +299,7 @@ async function seed() {
     recordedAt: daysAgo(13),
   });
 
+  // Anthropometrics as DECLARED — same source as the create-profile form.
   await upsertById(prisma.measurement, {
     id: "00000000-0000-4000-8000-000000000801",
     patientProfileId: MARIA_ID,
@@ -306,7 +307,7 @@ async function seed() {
     value: "31.4",
     unit: "kg",
     recordedAt: daysAgo(20),
-    source: "CONSULTATION",
+    source: "DECLARED",
   });
   await upsertById(prisma.measurement, {
     id: "00000000-0000-4000-8000-000000000802",
@@ -315,7 +316,7 @@ async function seed() {
     value: "134",
     unit: "cm",
     recordedAt: daysAgo(20),
-    source: "CONSULTATION",
+    source: "DECLARED",
   });
   await upsertById(prisma.measurement, {
     id: "00000000-0000-4000-8000-000000000803",
@@ -324,7 +325,7 @@ async function seed() {
     value: "45.2",
     unit: "kg",
     recordedAt: daysAgo(14),
-    source: "CONSULTATION",
+    source: "DECLARED",
   });
   await upsertById(prisma.measurement, {
     id: "00000000-0000-4000-8000-000000000806",
@@ -333,7 +334,7 @@ async function seed() {
     value: "156",
     unit: "cm",
     recordedAt: daysAgo(14),
-    source: "CONSULTATION",
+    source: "DECLARED",
   });
   await upsertById(prisma.measurement, {
     id: "00000000-0000-4000-8000-000000000807",
@@ -342,7 +343,7 @@ async function seed() {
     value: "78.5",
     unit: "kg",
     recordedAt: daysAgo(60),
-    source: "CONSULTATION",
+    source: "DECLARED",
   });
   await upsertById(prisma.measurement, {
     id: "00000000-0000-4000-8000-000000000808",
@@ -351,7 +352,7 @@ async function seed() {
     value: "178",
     unit: "cm",
     recordedAt: daysAgo(60),
-    source: "CONSULTATION",
+    source: "DECLARED",
   });
 
   await upsertById(prisma.medicalDocument, {
