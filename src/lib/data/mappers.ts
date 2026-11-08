@@ -1,7 +1,9 @@
 import type {
   ConsultationStatus as DbConsultationStatus,
   DocumentType as DbDocumentType,
+  FoodGroup as DbFoodGroup,
   InfoSource as DbInfoSource,
+  MealType as DbMealType,
   PatientSex as DbPatientSex,
   ProfileRelationshipType,
   TimelineEventType as DbTimelineEventType,
@@ -13,6 +15,7 @@ import type {
 } from "@/lib/patient-dashboard/types";
 import type { PatientRelation, PatientSex } from "@/lib/patient-select";
 import type { ConsultationStatus } from "@/lib/consultations/types";
+import type { FoodGroup, MealType } from "@/lib/nutrition/types";
 
 export function mapSex(sex: DbPatientSex): PatientSex {
   return sex === "FEMALE" ? "female" : "male";
@@ -144,4 +147,59 @@ export function medicalEventSourceLabel(source: string): string {
     return "Triaj";
   }
   return "Profil";
+}
+
+const MEAL_TYPE_FROM_DB: Record<DbMealType, MealType> = {
+  BREAKFAST: "breakfast",
+  LUNCH: "lunch",
+  DINNER: "dinner",
+  SNACK: "snack",
+};
+
+const FOOD_GROUP_FROM_DB: Record<DbFoodGroup, FoodGroup> = {
+  VEGETABLES: "vegetables",
+  FRUITS: "fruits",
+  GRAINS: "grains",
+  PROTEIN: "protein",
+  DAIRY: "dairy",
+  FATS: "fats",
+  SWEETS: "sweets",
+};
+
+export function mapMealType(type: DbMealType): MealType {
+  return MEAL_TYPE_FROM_DB[type];
+}
+
+const MEAL_TYPE_TO_DB: Record<MealType, DbMealType> = {
+  breakfast: "BREAKFAST",
+  lunch: "LUNCH",
+  dinner: "DINNER",
+  snack: "SNACK",
+};
+
+export function mapMealTypeToDb(type: MealType): DbMealType {
+  return MEAL_TYPE_TO_DB[type];
+}
+
+export function mapFoodGroup(group: DbFoodGroup): FoodGroup {
+  return FOOD_GROUP_FROM_DB[group];
+}
+
+const FOOD_GROUP_TO_DB: Record<FoodGroup, DbFoodGroup> = {
+  vegetables: "VEGETABLES",
+  fruits: "FRUITS",
+  grains: "GRAINS",
+  protein: "PROTEIN",
+  dairy: "DAIRY",
+  fats: "FATS",
+  sweets: "SWEETS",
+};
+
+export function mapFoodGroupToDb(group: FoodGroup): DbFoodGroup {
+  return FOOD_GROUP_TO_DB[group];
+}
+
+/** „YYYY-MM-DD” → valoare pentru o coloană `@db.Date`, fără conversie de fus orar. */
+export function isoDateToDbDate(isoDate: string): Date {
+  return new Date(`${isoDate}T00:00:00.000Z`);
 }

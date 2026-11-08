@@ -155,6 +155,12 @@ export async function deleteProfile(profileId: string): Promise<boolean> {
       await tx.measurement.deleteMany({
         where: { patientProfileId: profileId },
       });
+      await tx.nutritionEntry.deleteMany({
+        where: { patientProfileId: profileId },
+      });
+      await tx.hydrationLog.deleteMany({
+        where: { patientProfileId: profileId },
+      });
       await tx.medicalTimelineEvent.deleteMany({
         where: {
           OR: [
