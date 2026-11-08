@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ProfileAvatar } from "@/components/patient-select/avatar";
 import { DemoDialog } from "@/components/patient-select/dialog";
 import {
@@ -50,6 +50,8 @@ export function PatientDashboardPage({
   dashboard: PatientDashboard;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
   const [documentFilter, setDocumentFilter] = useState<DocumentType | "all">(
     "all",
@@ -138,7 +140,7 @@ export function PatientDashboardPage({
             </Link>
             <div className="hidden h-4 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
             <Link
-              href={`/pacient/${dashboard.person.id}/istoric-familial${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
+              href={`/pacient/${dashboard.person.id}/istoric-familial${queryString ? `?${queryString}` : ""}`}
               className="inline-flex items-center justify-center rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
             >
               Istoric familial

@@ -3,6 +3,7 @@
 import { useId, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
+import type { PatientPerson } from "@/lib/patient-dashboard/types";
 import {
   DemoBadge,
   EmptyNote,
@@ -24,13 +25,6 @@ import {
   type FamilyMemberInput,
   type FamilyRelation,
 } from "@/lib/family-history/types";
-import { getPatientDashboard } from "@/lib/patient-dashboard/fixtures";
-import {
-  patientRelationSchema,
-  patientSexSchema,
-  type PatientRelation,
-  type PatientSex,
-} from "@/lib/patient-select";
 import { sexDotClass } from "@/lib/patient-sex";
 import { cn } from "@/lib/utils";
 
@@ -44,16 +38,6 @@ const SIBLINGS: FamilyRelation[] = ["sister", "brother"];
 const EXTENDED: FamilyRelation[] = ["maternal_aunt", "maternal_uncle", "paternal_aunt", "paternal_uncle"];
 const FORM_ID = "family-member-form";
 
-function resolveRelation(raw: string | null): PatientRelation {
-  const parsed = patientRelationSchema.safeParse(raw);
-  return parsed.success ? parsed.data : "self";
-}
-
-function resolveSex(raw: string | null): PatientSex {
-  const parsed = patientSexSchema.safeParse(raw);
-  return parsed.success ? parsed.data : "female";
-}
-
 /** Familia demonstrativă (doar pentru Laura). Datele stau în starea paginii, fără server. */
 function initialFamily(profileId: string): FamilyMember[] {
   if (profileId !== DEMO_FAMILY_PROFILE_ID) return [];
@@ -65,21 +49,11 @@ function initialFamily(profileId: string): FamilyMember[] {
   }));
 }
 
-export function FamilyHistoryPage() {
+export function FamilyHistoryPage({ person }: { person: PatientPerson }) {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const profileId = typeof params.id === "string" ? params.id : "";
 
-  const person = useMemo(
-    () =>
-      getPatientDashboard(
-        profileId,
-        searchParams.get("nume") ?? undefined,
-        resolveRelation(searchParams.get("relatie")),
-        resolveSex(searchParams.get("sex")),
-      ).person,
-    [profileId, searchParams],
-  );
   const dashboardHref = `/pacient/${profileId}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 
   // Demo fără backend: consimțământul și membrii familiei se păstrează doar cât timp pagina este deschisă.

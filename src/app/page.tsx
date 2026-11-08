@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { PatientSelectPage } from "@/components/patient-select/patient-select-page";
 import { listProfilesForSpace } from "@/lib/data/profiles";
 
@@ -17,6 +18,7 @@ export default function Home() {
 }
 
 async function HomeProfiles() {
+  await connection();
   const profiles = await listProfilesForSpace();
   return <PatientSelectPage initialProfiles={profiles} />;
 }
